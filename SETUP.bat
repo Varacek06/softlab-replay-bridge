@@ -46,10 +46,10 @@ if not exist "C:\SoftLab_ReplayBridge\node.exe" (
     powershell -NoProfile -ExecutionPolicy Bypass -Command "$ProgressPreference = 'SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri 'https://nodejs.org/dist/v22.14.0/win-x64/node.exe' -OutFile 'C:\SoftLab_ReplayBridge\node.exe'"
 )
 
-echo [5/6] Compiling ReplayBridge.exe using csc.exe...
+echo [5/6] Compiling ReplayBridge.exe using csc.exe (forced 32-bit)...
 set CSC="C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
 if not exist %CSC% set CSC="C:\Windows\Microsoft.NET\Framework\v4.0.30319\csc.exe"
-%CSC% /nologo /target:winexe /win32icon:"C:\SoftLab_ReplayBridge\icon.ico" /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:"C:\SoftLab_ReplayBridge\ReplayBridge.exe" "C:\SoftLab_ReplayBridge\ReplayBridge.cs"
+%CSC% /nologo /platform:x86 /target:winexe /win32icon:"C:\SoftLab_ReplayBridge\icon.ico" /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:"C:\SoftLab_ReplayBridge\ReplayBridge.exe" "C:\SoftLab_ReplayBridge\ReplayBridge.cs"
 
 echo [6/6] Configuring SoftLab and starting services...
 reg import "C:\SoftLab_ReplayBridge\SoftLab_ReplayEditor.reg"
