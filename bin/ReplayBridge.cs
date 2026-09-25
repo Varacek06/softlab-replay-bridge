@@ -65,11 +65,9 @@ class ReplayTrayApp : ApplicationContext {
     private string baseDir;
     private string configPath;
     private Form settingsForm = null;
-    private Control syncControl;
-
     public ReplayTrayApp() {
-        syncControl = new Control();
-        IntPtr forceHandle = syncControl.Handle; // Force window handle creation on UI thread
+        hiddenForm = new Form();
+        IntPtr forceHandle = hiddenForm.Handle; // Force window handle creation on UI thread
 
         baseDir = AppDomain.CurrentDomain.BaseDirectory;
         configPath = Path.Combine(baseDir, "config.json");
@@ -179,10 +177,12 @@ class ReplayTrayApp : ApplicationContext {
         settingsForm.Show();
     }
 
+    private Form hiddenForm;
+    private Bitmap bmpRed, bmpOrange, bmpGreen;
     private Icon iconRed, iconOrange, iconGreen;
 
-    private Icon MakeIcon(Color c) {
-        Bitmap bmp = new Bitmap(16, 16);
+    private Icon MakeIcon(Color c, out Bitmap bmp) {
+        bmp = new Bitmap(16, 16);
         using (Graphics g = Graphics.FromImage(bmp)) {
             g.Clear(Color.Transparent);
             try {
@@ -196,17 +196,16 @@ class ReplayTrayApp : ApplicationContext {
                 using (Pen p = new Pen(Color.White, 1)) { g.DrawEllipse(p, 2, 2, 12, 12); }
             }
         }
-        IntPtr hIcon = bmp.GetHicon();
-        Icon icon = Icon.FromHandle(hIcon);
-        // ZADNE DestroyIcon! Tyhle tri ikony si nechavame naporad.
-        bmp.Dispose();
-        return icon;
+        return Icon.FromHandle(bmp.GetHicon());
+        // Zamerne NEVOLAME bmp.Dispose() ani DestroyIcon.
+        // Bitmapy si nechame v pameti po celou dobu behu, abychom meli
+        // 100% jistotu, ze Windows nevymaze data, na ktere ikona odkazuje.
     }
 
     private void InitIcons() {
-        iconRed = MakeIcon(Color.Red);
-        iconOrange = MakeIcon(Color.Orange);
-        iconGreen = MakeIcon(Color.LimeGreen);
+        iconRed = MakeIcon(Color.Red, out bmpRed);
+        iconOrange = MakeIcon(Color.Orange, out bmpOrange);
+        iconGreen = MakeIcon(Color.LimeGreen, out bmpGreen);
     }
 
     private Icon GetStatusIcon(Color c) {
@@ -217,8 +216,8 @@ class ReplayTrayApp : ApplicationContext {
 
     private void UpdateStatus(string text, Color color) {
         try {
-            if (syncControl.InvokeRequired) {
-                syncControl.BeginInvoke(new Action(delegate { UpdateStatus(text, color); }));
+            if (hiddenForm != null && hiddenForm.InvokeRequired) {
+                hiddenForm.BeginInvoke(new Action(delegate { UpdateStatus(text, color); }));
                 return;
             }
             string full = "Replay Editor: " + text;
