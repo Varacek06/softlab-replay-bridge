@@ -19,10 +19,6 @@ jobs:
         run: |
           Invoke-WebRequest -Uri "https://nodejs.org/dist/v22.14.0/win-x64/node.exe" -OutFile "bin/node.exe"
 
-      - name: Compile bin/ReplayBridge.cs to bin/ReplayBridge.exe
-        shell: pwsh
-        run: |
-          & "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" /nologo /target:winexe /win32icon:"bin\icon.ico" /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:"bin\ReplayBridge.exe" "bin\ReplayBridge.cs"
 
       - name: Pack everything into ReplayEditor_Setup.zip
         shell: pwsh
