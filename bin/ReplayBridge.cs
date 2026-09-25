@@ -192,7 +192,7 @@ class ReplayTrayApp : ApplicationContext {
                     MIDIOUTCAPSW caps;
                     uint res = midiOutGetDevCapsW((UIntPtr)i, out caps, (uint)Marshal.SizeOf(typeof(MIDIOUTCAPSW)));
                     sw.WriteLine(string.Format("Device {0}: name='{1}', result={2}", i, caps.szPname ?? "null", res));
-                    if (caps.szPname != null && caps.szPname.IndexOf("loopMIDI", StringComparison.OrdinalIgnoreCase) >= 0) {
+                    if (caps.szPname != null && (caps.szPname.IndexOf("loopMIDI", StringComparison.OrdinalIgnoreCase) >= 0 || caps.szPname.IndexOf("LoopBe", StringComparison.OrdinalIgnoreCase) >= 0)) {
                         uint openRes = midiOutOpen(out midiHandle, i, IntPtr.Zero, IntPtr.Zero, 0);
                         sw.WriteLine(string.Format("  -> Match found! midiOutOpen result: {0}", openRes));
                         if (openRes == 0) return true;
@@ -206,7 +206,7 @@ class ReplayTrayApp : ApplicationContext {
     private void WorkerLoop() {
         while (running) {
             if (!EnsureMidiOpen()) {
-                UpdateStatus("Cekam na loopMIDI Port...", Color.Red);
+                UpdateStatus("Cekam na loopMIDI/LoopBe...", Color.Red);
                 Thread.Sleep(3000);
                 continue;
             }
