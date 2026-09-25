@@ -1,6 +1,7 @@
 @echo off
 echo Instaluji Blackmagic Replay Editor Bridge pro SoftLab...
 taskkill /F /IM ReplayBridge.exe >nul 2>&1
+taskkill /F /IM node.exe >nul 2>&1
 xcopy /E /I /Y "%~dp0bin\*" "C:\SoftLab_ReplayBridge\"
 reg import "C:\SoftLab_ReplayBridge\SoftLab_ReplayEditor.reg"
 taskkill /F /IM slgpiservers.exe >nul 2>&1
