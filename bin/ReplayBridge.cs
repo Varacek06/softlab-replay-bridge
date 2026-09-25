@@ -32,17 +32,17 @@ class ReplayTrayApp : ApplicationContext {
     [DllImport("winmm.dll", CharSet = CharSet.Ansi)] public static extern uint midiInGetDevCapsA(UIntPtr id, out MIDIINCAPSA caps, uint cb);
 
     // === teVirtualMIDI direct API (fallback when WinMM is broken) ===
-    [DllImport("teVirtualMIDI64.dll", EntryPoint = "virtualMIDICreatePortEx3", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    [DllImport("teVirtualMIDI64.dll", EntryPoint = "virtualMIDICreatePortEx3", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern IntPtr virtualMIDICreatePortEx3_64([MarshalAs(UnmanagedType.LPWStr)] string portName, IntPtr callback, IntPtr userData, uint maxSysexLength, uint flags);
-    [DllImport("teVirtualMIDI32.dll", EntryPoint = "virtualMIDICreatePortEx3", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    [DllImport("teVirtualMIDI32.dll", EntryPoint = "virtualMIDICreatePortEx3", CharSet = CharSet.Unicode, SetLastError = true)]
     public static extern IntPtr virtualMIDICreatePortEx3_32([MarshalAs(UnmanagedType.LPWStr)] string portName, IntPtr callback, IntPtr userData, uint maxSysexLength, uint flags);
-    [DllImport("teVirtualMIDI64.dll", EntryPoint = "virtualMIDISendData", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    [DllImport("teVirtualMIDI64.dll", EntryPoint = "virtualMIDISendData", SetLastError = true)]
     public static extern bool virtualMIDISendData_64(IntPtr port, byte[] data, uint length);
-    [DllImport("teVirtualMIDI32.dll", EntryPoint = "virtualMIDISendData", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    [DllImport("teVirtualMIDI32.dll", EntryPoint = "virtualMIDISendData", SetLastError = true)]
     public static extern bool virtualMIDISendData_32(IntPtr port, byte[] data, uint length);
-    [DllImport("teVirtualMIDI64.dll", EntryPoint = "virtualMIDIClosePort", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    [DllImport("teVirtualMIDI64.dll", EntryPoint = "virtualMIDIClosePort", SetLastError = true)]
     public static extern void virtualMIDIClosePort_64(IntPtr port);
-    [DllImport("teVirtualMIDI32.dll", EntryPoint = "virtualMIDIClosePort", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    [DllImport("teVirtualMIDI32.dll", EntryPoint = "virtualMIDIClosePort", SetLastError = true)]
     public static extern void virtualMIDIClosePort_32(IntPtr port);
 
     private static bool is64bit = IntPtr.Size == 8;
