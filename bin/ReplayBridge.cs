@@ -178,34 +178,13 @@ class ReplayTrayApp : ApplicationContext {
     }
 
     private Form hiddenForm;
-    private Bitmap bmpRed, bmpOrange, bmpGreen;
     private Icon iconRed, iconOrange, iconGreen;
 
-    private Icon MakeIcon(Color c, out Bitmap bmp) {
-        bmp = new Bitmap(16, 16);
-        using (Graphics g = Graphics.FromImage(bmp)) {
-            g.Clear(Color.Transparent);
-            try {
-                using (Bitmap baseImg = new Bitmap(Path.Combine(baseDir, "icon.ico"))) {
-                    g.DrawImage(baseImg, 0, 0, 16, 16);
-                }
-                using (Brush b = new SolidBrush(c)) { g.FillEllipse(b, 10, 10, 6, 6); }
-                using (Pen p = new Pen(Color.Black, 1)) { g.DrawEllipse(p, 10, 10, 6, 6); }
-            } catch {
-                using (Brush b = new SolidBrush(c)) { g.FillEllipse(b, 2, 2, 12, 12); }
-                using (Pen p = new Pen(Color.White, 1)) { g.DrawEllipse(p, 2, 2, 12, 12); }
-            }
-        }
-        return Icon.FromHandle(bmp.GetHicon());
-        // Zamerne NEVOLAME bmp.Dispose() ani DestroyIcon.
-        // Bitmapy si nechame v pameti po celou dobu behu, abychom meli
-        // 100% jistotu, ze Windows nevymaze data, na ktere ikona odkazuje.
-    }
-
     private void InitIcons() {
-        iconRed = MakeIcon(Color.Red, out bmpRed);
-        iconOrange = MakeIcon(Color.Orange, out bmpOrange);
-        iconGreen = MakeIcon(Color.LimeGreen, out bmpGreen);
+        // POUZIVAME STANDARDNI WINDOWS IKONY PRO DIAGNOSTIKU
+        iconRed = SystemIcons.Error;
+        iconOrange = SystemIcons.Warning;
+        iconGreen = SystemIcons.Information;
     }
 
     private Icon GetStatusIcon(Color c) {
