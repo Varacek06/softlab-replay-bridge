@@ -185,13 +185,21 @@ class ReplayTrayApp : ApplicationContext {
     private bool EnsureMidiOpen() {
         if (midiHandle != IntPtr.Zero) return true;
         uint count = midiOutGetNumDevs();
-        for (uint i = 0; i < count; i++) {
-            MIDIOUTCAPSW caps;
-            midiOutGetDevCapsW((UIntPtr)i, out caps, (uint)Marshal.SizeOf(typeof(MIDIOUTCAPSW)));
-            if (caps.szPname != null && caps.szPname.IndexOf("loopMIDI", StringComparison.OrdinalIgnoreCase) >= 0) {
-                if (midiOutOpen(out midiHandle, i, IntPtr.Zero, IntPtr.Zero, 0) == 0) return true;
+        try {
+            using (StreamWriter sw = new StreamWriter(Path.Combine(baseDir, "midi_debug.txt"), false)) {
+                sw.WriteLine("Total MIDI OUT devices: " + count);
+                for (uint i = 0; i < count; i++) {
+                    MIDIOUTCAPSW caps;
+                    uint res = midiOutGetDevCapsW((UIntPtr)i, out caps, (uint)Marshal.SizeOf(typeof(MIDIOUTCAPSW)));
+                    sw.WriteLine($"Device {i}: name='{(caps.szPname ?? "null")}', result={res}");
+                    if (caps.szPname != null && caps.szPname.IndexOf("loopMIDI", StringComparison.OrdinalIgnoreCase) >= 0) {
+                        uint openRes = midiOutOpen(out midiHandle, i, IntPtr.Zero, IntPtr.Zero, 0);
+                        sw.WriteLine($"  -> Match found! midiOutOpen result: {openRes}");
+                        if (openRes == 0) return true;
+                    }
+                }
             }
-        }
+        } catch { }
         return false;
     }
 
