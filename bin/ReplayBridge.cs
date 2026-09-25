@@ -9,18 +9,43 @@ using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
 class ReplayTrayApp : ApplicationContext {
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    public struct MIDIOUTCAPSW {
+    // === WinMM MIDI OUT API ===
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public struct MIDIOUTCAPSA {
         public ushort wMid; public ushort wPid; public uint vDriverVersion;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string szPname;
         public ushort wTechnology; public ushort wVoices; public ushort wNotes;
         public ushort wChannelMask; public uint dwSupport;
     }
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public struct MIDIINCAPSA {
+        public ushort wMid; public ushort wPid; public uint vDriverVersion;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string szPname;
+        public uint dwSupport;
+    }
     [DllImport("winmm.dll")] public static extern uint midiOutGetNumDevs();
-    [DllImport("winmm.dll", CharSet = CharSet.Unicode)] public static extern uint midiOutGetDevCapsW(UIntPtr id, out MIDIOUTCAPSW caps, uint cb);
+    [DllImport("winmm.dll", CharSet = CharSet.Ansi)] public static extern uint midiOutGetDevCapsA(UIntPtr id, out MIDIOUTCAPSA caps, uint cb);
     [DllImport("winmm.dll")] public static extern uint midiOutOpen(out IntPtr h, uint id, IntPtr cb, IntPtr inst, uint flags);
     [DllImport("winmm.dll")] public static extern uint midiOutShortMsg(IntPtr h, uint msg);
     [DllImport("winmm.dll")] public static extern uint midiOutClose(IntPtr h);
+    [DllImport("winmm.dll")] public static extern uint midiInGetNumDevs();
+    [DllImport("winmm.dll", CharSet = CharSet.Ansi)] public static extern uint midiInGetDevCapsA(UIntPtr id, out MIDIINCAPSA caps, uint cb);
+
+    // === teVirtualMIDI direct API (fallback when WinMM is broken) ===
+    [DllImport("teVirtualMIDI64.dll", EntryPoint = "virtualMIDICreatePortEx3", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    public static extern IntPtr virtualMIDICreatePortEx3_64([MarshalAs(UnmanagedType.LPWStr)] string portName, IntPtr callback, IntPtr userData, uint maxSysexLength, uint flags);
+    [DllImport("teVirtualMIDI32.dll", EntryPoint = "virtualMIDICreatePortEx3", CharSet = CharSet.Unicode, CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    public static extern IntPtr virtualMIDICreatePortEx3_32([MarshalAs(UnmanagedType.LPWStr)] string portName, IntPtr callback, IntPtr userData, uint maxSysexLength, uint flags);
+    [DllImport("teVirtualMIDI64.dll", EntryPoint = "virtualMIDISendData", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    public static extern bool virtualMIDISendData_64(IntPtr port, byte[] data, uint length);
+    [DllImport("teVirtualMIDI32.dll", EntryPoint = "virtualMIDISendData", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    public static extern bool virtualMIDISendData_32(IntPtr port, byte[] data, uint length);
+    [DllImport("teVirtualMIDI64.dll", EntryPoint = "virtualMIDIClosePort", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    public static extern void virtualMIDIClosePort_64(IntPtr port);
+    [DllImport("teVirtualMIDI32.dll", EntryPoint = "virtualMIDIClosePort", CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
+    public static extern void virtualMIDIClosePort_32(IntPtr port);
+
+    private static bool is64bit = IntPtr.Size == 8;
 
     private NotifyIcon trayIcon;
     private ToolStripMenuItem statusItem;
@@ -28,6 +53,8 @@ class ReplayTrayApp : ApplicationContext {
     private ToolStripMenuItem invertWheelItem;
     private ToolStripMenuItem autoStartItem;
     private IntPtr midiHandle = IntPtr.Zero;
+    private IntPtr virtualMidiPort = IntPtr.Zero;
+    private bool useDirectMidi = false;
     private Process nodeProc = null;
     private volatile bool running = true;
     private volatile bool invertWheel = false;
@@ -183,24 +210,66 @@ class ReplayTrayApp : ApplicationContext {
     }
 
     private bool EnsureMidiOpen() {
-        if (midiHandle != IntPtr.Zero) return true;
-        uint count = midiOutGetNumDevs();
+        if (midiHandle != IntPtr.Zero || virtualMidiPort != IntPtr.Zero) return true;
+        uint outCount = midiOutGetNumDevs();
+        uint inCount = midiInGetNumDevs();
         try {
             using (StreamWriter sw = new StreamWriter(Path.Combine(baseDir, "midi_debug.txt"), false)) {
-                sw.WriteLine("Total MIDI OUT devices: " + count);
-                for (uint i = 0; i < count; i++) {
-                    MIDIOUTCAPSW caps;
-                    uint res = midiOutGetDevCapsW((UIntPtr)i, out caps, (uint)Marshal.SizeOf(typeof(MIDIOUTCAPSW)));
-                    sw.WriteLine(string.Format("Device {0}: name='{1}', result={2}", i, caps.szPname ?? "null", res));
-                    if (caps.szPname != null && (caps.szPname.IndexOf("loopMIDI", StringComparison.OrdinalIgnoreCase) >= 0 || caps.szPname.IndexOf("LoopBe", StringComparison.OrdinalIgnoreCase) >= 0)) {
+                sw.WriteLine(string.Format("Platform: {0}-bit process", is64bit ? "64" : "32"));
+                sw.WriteLine(string.Format("MIDI OUT devices: {0}", outCount));
+                for (uint i = 0; i < outCount; i++) {
+                    MIDIOUTCAPSA caps;
+                    uint res = midiOutGetDevCapsA((UIntPtr)i, out caps, (uint)Marshal.SizeOf(typeof(MIDIOUTCAPSA)));
+                    sw.WriteLine(string.Format("  OUT[{0}]: name='{1}', result={2}", i, caps.szPname ?? "null", res));
+                    if (caps.szPname != null && (
+                        caps.szPname.IndexOf("loopMIDI", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        caps.szPname.IndexOf("LoopBe", StringComparison.OrdinalIgnoreCase) >= 0)) {
                         uint openRes = midiOutOpen(out midiHandle, i, IntPtr.Zero, IntPtr.Zero, 0);
-                        sw.WriteLine(string.Format("  -> Match found! midiOutOpen result: {0}", openRes));
-                        if (openRes == 0) return true;
+                        sw.WriteLine(string.Format("  -> WinMM match! midiOutOpen result: {0}", openRes));
+                        if (openRes == 0) { useDirectMidi = false; return true; }
                     }
+                }
+                sw.WriteLine(string.Format("MIDI IN devices: {0}", inCount));
+                for (uint i = 0; i < inCount; i++) {
+                    MIDIINCAPSA inCaps;
+                    uint res = midiInGetDevCapsA((UIntPtr)i, out inCaps, (uint)Marshal.SizeOf(typeof(MIDIINCAPSA)));
+                    sw.WriteLine(string.Format("  IN[{0}]: name='{1}', result={2}", i, inCaps.szPname ?? "null", res));
+                }
+                // WinMM failed - try teVirtualMIDI direct API
+                sw.WriteLine("WinMM: loopMIDI port NOT found. Trying teVirtualMIDI direct API...");
+                try {
+                    IntPtr port = IntPtr.Zero;
+                    if (is64bit)
+                        port = virtualMIDICreatePortEx3_64("SoftLab ReplayBridge", IntPtr.Zero, IntPtr.Zero, 65535, 1);
+                    else
+                        port = virtualMIDICreatePortEx3_32("SoftLab ReplayBridge", IntPtr.Zero, IntPtr.Zero, 65535, 1);
+                    if (port != IntPtr.Zero) {
+                        virtualMidiPort = port;
+                        useDirectMidi = true;
+                        sw.WriteLine("teVirtualMIDI: Created direct port 'SoftLab ReplayBridge' - SUCCESS");
+                        return true;
+                    } else {
+                        int err = Marshal.GetLastWin32Error();
+                        sw.WriteLine(string.Format("teVirtualMIDI: CreatePort failed, error={0}", err));
+                    }
+                } catch (Exception ex) {
+                    sw.WriteLine(string.Format("teVirtualMIDI: DLL not available ({0})", ex.GetType().Name));
                 }
             }
         } catch { }
         return false;
+    }
+
+    private void SendMidi(uint msg) {
+        if (useDirectMidi && virtualMidiPort != IntPtr.Zero) {
+            byte[] data = new byte[] { (byte)(msg & 0xFF), (byte)((msg >> 8) & 0xFF), (byte)((msg >> 16) & 0xFF) };
+            if (is64bit)
+                virtualMIDISendData_64(virtualMidiPort, data, 3);
+            else
+                virtualMIDISendData_32(virtualMidiPort, data, 3);
+        } else if (midiHandle != IntPtr.Zero) {
+            midiOutShortMsg(midiHandle, msg);
+        }
     }
 
     private void WorkerLoop() {
@@ -233,20 +302,20 @@ class ReplayTrayApp : ApplicationContext {
                         while (remaining > 0 && maxPacks-- > 0) {
                             int chunk = Math.Min(60, remaining);
                             uint data2 = dirUp ? (uint)(64 + chunk) : (uint)chunk;
-                            midiOutShortMsg(midiHandle, 0xB0u | (88u << 8) | (data2 << 16));
+                            SendMidi(0xB0u | (88u << 8) | (data2 << 16));
                             remaining -= chunk;
                         }
                     } else if (p[0] == "ON") {
                         int note = int.Parse(p[1]);
-                        midiOutShortMsg(midiHandle, 0x90u | ((uint)(note & 0x7F) << 8) | (127u << 16));
+                        SendMidi(0x90u | ((uint)(note & 0x7F) << 8) | (127u << 16));
                         if (p.Length >= 3) lastKeyItem.Text = "Last key: MIDIKey_" + p[2].Replace("-", "_") + "_DOWN";
                     } else if (p[0] == "OFF") {
                         int note = int.Parse(p[1]);
-                        midiOutShortMsg(midiHandle, 0x80u | ((uint)(note & 0x7F) << 8));
+                        SendMidi(0x80u | ((uint)(note & 0x7F) << 8));
                     } else if (p[0] == "CC" && p.Length >= 3) {
                         int cc = int.Parse(p[1]);
                         int val = int.Parse(p[2]);
-                        midiOutShortMsg(midiHandle, 0xB0u | ((uint)(cc & 0x7F) << 8) | ((uint)(val & 0x7F) << 16));
+                        SendMidi(0xB0u | ((uint)(cc & 0x7F) << 8) | ((uint)(val & 0x7F) << 16));
                     } else if (p[0] == "STATUS") {
                         if (p[1] == "READY") UpdateStatus("Pripojeno (Dvojklik = Nastaveni)", Color.LimeGreen);
                         else if (p[1] == "WAIT_USB") UpdateStatus("Cekam na pripojeni USB pultu...", Color.Orange);
@@ -295,6 +364,13 @@ class ReplayTrayApp : ApplicationContext {
         running = false;
         try { if (nodeProc != null && !nodeProc.HasExited) nodeProc.Kill(); } catch {}
         if (midiHandle != IntPtr.Zero) { midiOutClose(midiHandle); midiHandle = IntPtr.Zero; }
+        if (virtualMidiPort != IntPtr.Zero) {
+            try {
+                if (is64bit) virtualMIDIClosePort_64(virtualMidiPort);
+                else virtualMIDIClosePort_32(virtualMidiPort);
+            } catch {}
+            virtualMidiPort = IntPtr.Zero;
+        }
         trayIcon.Visible = false;
         Application.Exit();
     }
