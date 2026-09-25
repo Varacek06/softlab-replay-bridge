@@ -24,8 +24,17 @@ xcopy /E /I /Y "%~dp0bin\*" "C:\SoftLab_ReplayBridge\"
 
 echo [3/6] Checking loopMIDI...
 if not exist "C:\Program Files (x86)\Tobias Erichsen\loopMIDI\loopMIDI.exe" (
-    echo   - loopMIDI is not installed. Downloading and installing silently...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri 'https://www.tobias-erichsen.de/wp-content/uploads/2020/01/loopMIDISetup_1_0_16_27.zip' -OutFile 'C:\SoftLab_ReplayBridge\loopMIDI.zip'; Expand-Archive -Path 'C:\SoftLab_ReplayBridge\loopMIDI.zip' -DestinationPath 'C:\SoftLab_ReplayBridge\loopMIDI' -Force; Start-Process -FilePath 'C:\SoftLab_ReplayBridge\loopMIDI\loopMIDISetup_1_0_16_27.exe' -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-' -Wait; Remove-Item 'C:\SoftLab_ReplayBridge\loopMIDI.zip' -Force; Remove-Item -Recurse -Force 'C:\SoftLab_ReplayBridge\loopMIDI'"
+    echo   - loopMIDI is not installed!
+    echo   - Opening download page in your web browser...
+    start https://www.tobias-erichsen.de/software/loopmidi.html
+    echo.
+    echo   ********************************************************
+    echo   * PLEASE INSTALL LOOPMIDI NOW                          *
+    echo   * 1. Download loopMIDI from the webpage that opened.   *
+    echo   * 2. Run the installer and finish the installation.    *
+    echo   * 3. Come back here and press any key to continue.     *
+    echo   ********************************************************
+    pause
     set NEED_LOOPMIDI_PORT=1
 ) else (
     echo   - loopMIDI is already installed.
@@ -34,7 +43,7 @@ if not exist "C:\Program Files (x86)\Tobias Erichsen\loopMIDI\loopMIDI.exe" (
 echo [4/6] Checking node.exe...
 if not exist "C:\SoftLab_ReplayBridge\node.exe" (
     echo   - Downloading portable node.exe from nodejs.org...
-    powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri 'https://nodejs.org/dist/v22.14.0/win-x64/node.exe' -OutFile 'C:\SoftLab_ReplayBridge\node.exe'"
+    powershell -NoProfile -ExecutionPolicy Bypass -Command "$ProgressPreference = 'SilentlyContinue'; [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -UseBasicParsing -Uri 'https://nodejs.org/dist/v22.14.0/win-x64/node.exe' -OutFile 'C:\SoftLab_ReplayBridge\node.exe'"
 )
 
 echo [5/6] Compiling ReplayBridge.exe using csc.exe...
