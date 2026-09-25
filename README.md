@@ -25,13 +25,13 @@ Most funguje jako lehká "System Tray" aplikace pro Windows, která na pozadí p
 
 *   **Operační systém:** Windows 10 nebo Windows 11 (64-bit).
 *   **Hardware:** Pult Blackmagic Replay Editor připojený přes USB. *(Upozornění: Během používání nesmí běžet DaVinci Resolve ani Bitfocus Companion, mohly by blokovat komunikaci s pultem.)*
-*   **Driver:** Nainstalovaný driver **teVirtualMIDI** (případně program loopMIDI, který tento driver obsahuje).
+*   **Driver:** Nainstalovaný program **[loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html)** (obsahuje nezbytný driver teVirtualMIDI).
 
 ---
 
 ## Instalace
 
-1. Stáhněte a nainstalujte [loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html) (obsahuje nezbytný driver teVirtualMIDI).
+1. Stáhněte a nainstalujte [loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html).
 2. Otevřete loopMIDI a vytvořte port s přesným názvem: `loopMIDI Port` (napište do spodního pole a klikněte na **+**). V nastavení programu zaškrtněte **Autostart loopMIDI** a **Start minimized**.
 3. Stáhněte si nejnovější instalační archiv `ReplayEditor_Setup.zip` z *Releases* na GitHubu a rozbalte jej.
 4. Spusťte soubor **`SETUP.bat`** (automaticky si vyžádá oprávnění správce).
@@ -45,13 +45,9 @@ Most funguje jako lehká "System Tray" aplikace pro Windows, která na pozadí p
 
 ## Konfigurace v SoftLab-NSK
 
-1. V programu *SLGPI Server* vyberte nastavení pro konzoli (např. **External GPI Console #1**).
-2. Typ zařízení nastavte na **MIDI** a port nastavte na `SoftLab ReplayBridge` (případně jiný, pokud používáte záložní WinMM metodu).
-3. V sekci přiřazení:
-    *   **Jog:** Zvolte událost `MIDIWheel_JogShuttle`.
-    *   **Work slow speed:** Zvolte událost `MIDIHandle_TBAR_Event`.
-4. Pomocí tlačítka **Detect** namapujte konkrétní klávesy pultu na požadované funkce.
-5. Uložte nastavení a restartujte GPI službu.
+Díky automatické registraci (pomocí souboru `.reg` během instalace) není potřeba otevírat SLGPI Server ani nic složitě nastavovat. 
+
+Pult se po instalaci rovnou automaticky zpřístupní ve vaší odbavovací aplikaci (např. **Replay Capture 2**, Forward Replay atd.) a můžete jej začít okamžitě používat.
 
 ---
 
@@ -99,7 +95,7 @@ The bridge acts as a lightweight, portable System Tray application for Windows, 
 
 *   **Operating System:** Windows 10 or Windows 11 (64-bit).
 *   **Hardware:** Blackmagic Replay Editor connected via USB. *(Note: DaVinci Resolve or Bitfocus Companion must not be running during use.)*
-*   **Driver:** Tobias Erichsen's **teVirtualMIDI** driver installed (or loopMIDI).
+*   **Driver:** [loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html) installed (it includes the necessary teVirtualMIDI driver).
 
 ---
 
@@ -119,7 +115,9 @@ The bridge acts as a lightweight, portable System Tray application for Windows, 
 
 ## Configuration & Troubleshooting
 
-Double-click the tray icon to open the **Wheel Speed Settings**.
+Thanks to the automated registry setup during installation, there is no need to manually configure the SLGPI Server. The panel will automatically become available in your broadcast application (e.g., Replay Capture 2, Forward Replay) and is ready to use immediately.
+
+Double-click the system tray icon at any time to open the **Wheel Speed Settings**.
 
 The system tray icon indicates the current communication status:
 *   🟢 **Green:** Everything is working correctly.
