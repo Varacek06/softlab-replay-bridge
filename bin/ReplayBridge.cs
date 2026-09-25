@@ -9,15 +9,15 @@ using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
 class ReplayTrayApp : ApplicationContext {
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    public struct MIDIOUTCAPSW {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
+    public struct MIDIOUTCAPSA {
         public ushort wMid; public ushort wPid; public uint vDriverVersion;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string szPname;
         public ushort wTechnology; public ushort wVoices; public ushort wNotes;
         public ushort wChannelMask; public uint dwSupport;
     }
-    [DllImport("winmm.dll")] public static extern uint midiOutGetNumDevs();
-    [DllImport("winmm.dll", CharSet = CharSet.Unicode)] public static extern uint midiOutGetDevCapsW(UIntPtr id, out MIDIOUTCAPSW caps, uint cb);
+    [DllImport("winmm.dll", CharSet = CharSet.Ansi)] public static extern uint midiOutGetNumDevs();
+    [DllImport("winmm.dll", CharSet = CharSet.Ansi)] public static extern uint midiOutGetDevCapsA(UIntPtr id, out MIDIOUTCAPSA caps, uint cb);
     [DllImport("winmm.dll")] public static extern uint midiOutOpen(out IntPtr h, uint id, IntPtr cb, IntPtr inst, uint flags);
     [DllImport("winmm.dll")] public static extern uint midiOutShortMsg(IntPtr h, uint msg);
     [DllImport("winmm.dll")] public static extern uint midiOutClose(IntPtr h);
@@ -185,21 +185,13 @@ class ReplayTrayApp : ApplicationContext {
     private bool EnsureMidiOpen() {
         if (midiHandle != IntPtr.Zero) return true;
         uint count = midiOutGetNumDevs();
-        try {
-            using (StreamWriter sw = new StreamWriter(Path.Combine(baseDir, "midi_debug.txt"), false)) {
-                sw.WriteLine("Total MIDI OUT devices: " + count);
-                for (uint i = 0; i < count; i++) {
-                    MIDIOUTCAPSW caps;
-                    uint res = midiOutGetDevCapsW((UIntPtr)i, out caps, (uint)Marshal.SizeOf(typeof(MIDIOUTCAPSW)));
-                    sw.WriteLine(string.Format("Device {0}: name='{1}', result={2}", i, caps.szPname ?? "null", res));
-                    if (caps.szPname != null && caps.szPname.IndexOf("loopMIDI", StringComparison.OrdinalIgnoreCase) >= 0) {
-                        uint openRes = midiOutOpen(out midiHandle, i, IntPtr.Zero, IntPtr.Zero, 0);
-                        sw.WriteLine(string.Format("  -> Match found! midiOutOpen result: {0}", openRes));
-                        if (openRes == 0) return true;
-                    }
-                }
+        for (uint i = 0; i < count; i++) {
+            MIDIOUTCAPSA caps;
+            midiOutGetDevCapsA((UIntPtr)i, out caps, (uint)Marshal.SizeOf(typeof(MIDIOUTCAPSA)));
+            if (caps.szPname != null && caps.szPname.IndexOf("loopMIDI", StringComparison.OrdinalIgnoreCase) >= 0) {
+                if (midiOutOpen(out midiHandle, i, IntPtr.Zero, IntPtr.Zero, 0) == 0) return true;
             }
-        } catch { }
+        }
         return false;
     }
 

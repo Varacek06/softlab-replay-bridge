@@ -31,7 +31,7 @@ The bridge acts as a lightweight, portable System Tray application for Windows, 
 1. Download the latest installation archive `ReplayEditor_Setup.zip` from the *Releases* tab here on GitHub and extract it.
 2. Run the **`SETUP.bat`** file as an Administrator (Right-click -> *Run as administrator*).
 3. The setup script will automatically handle everything:
-    * It will **ask you to manually install the loopMIDI utility** (if missing). A webpage will open automatically.
+    * Downloads and **automatically (silently) installs the loopMIDI utility** (if missing).
     * Copies files to `C:\SoftLab_ReplayBridge\`.
     * Compiles the control application `ReplayBridge.exe`.
     * Registers the necessary settings into the SoftLab registry.
