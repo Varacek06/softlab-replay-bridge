@@ -45,9 +45,13 @@ Most funguje jako lehká "System Tray" aplikace pro Windows, která na pozadí p
 
 ## Konfigurace v SoftLab-NSK
 
-Díky automatické registraci (pomocí souboru `.reg` během instalace) není potřeba otevírat SLGPI Server ani nic složitě nastavovat. 
-
-Pult se po instalaci rovnou automaticky zpřístupní ve vaší odbavovací aplikaci (např. **Replay Capture 2**, Forward Replay atd.) a můžete jej začít okamžitě používat.
+1. Otevřete nastavení konzole v aplikaci (např. Replay Capture 2 / Forward Replay) a vyberte záložku **External GPI Console #1**.
+2. Typ zařízení nastavte na **MIDI** a port nastavte na `SoftLab ReplayBridge` (nebo `loopMIDI Port`).
+3. V sekci přiřazení:
+    *   **Jog:** Zvolte událost `MIDIWheel_JogShuttle`.
+    *   **Work slow speed:** Zvolte událost `MIDIHandle_TBAR_Event`.
+4. Pomocí tlačítka **Detect** (Detekovat) namapujte konkrétní klávesy pultu na požadované funkce.
+5. Nastavení uložte.
 
 ---
 
@@ -115,7 +119,13 @@ The bridge acts as a lightweight, portable System Tray application for Windows, 
 
 ## Configuration & Troubleshooting
 
-Thanks to the automated registry setup during installation, there is no need to manually configure the SLGPI Server. The panel will automatically become available in your broadcast application (e.g., Replay Capture 2, Forward Replay) and is ready to use immediately.
+1. Open the console settings in your application (e.g., Replay Capture 2 / Forward Replay) and select the **External GPI Console #1** tab.
+2. Set the device type to **MIDI** and the port to `SoftLab ReplayBridge` (or `loopMIDI Port`).
+3. In the assignment section, set:
+    *   **Jog:** Select `MIDIWheel_JogShuttle`.
+    *   **Work slow speed:** Select `MIDIHandle_TBAR_Event`.
+4. Use the **Detect** button to map specific panel keys to the desired functions.
+5. Save the settings.
 
 Double-click the system tray icon at any time to open the **Wheel Speed Settings**.
 
