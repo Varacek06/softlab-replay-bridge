@@ -177,14 +177,22 @@ class ReplayTrayApp : ApplicationContext {
 
     [DllImport("user32.dll")] private static extern bool DestroyIcon(IntPtr handle);
 
-    private Bitmap cachedBaseIcon = null;
+    private Icon iconRed, iconOrange, iconGreen;
 
-    private Icon CreateCircleIcon(Color c) {
+    private Icon MakeIcon(Color c) {
         Bitmap bmp = new Bitmap(16, 16);
         using (Graphics g = Graphics.FromImage(bmp)) {
             g.Clear(Color.Transparent);
-            using (Brush b = new SolidBrush(c)) { g.FillEllipse(b, 2, 2, 12, 12); }
-            using (Pen p = new Pen(Color.White, 1)) { g.DrawEllipse(p, 2, 2, 12, 12); }
+            try {
+                using (Bitmap baseImg = new Bitmap(Path.Combine(baseDir, "icon.ico"))) {
+                    g.DrawImage(baseImg, 0, 0, 16, 16);
+                }
+                using (Brush b = new SolidBrush(c)) { g.FillEllipse(b, 10, 10, 6, 6); }
+                using (Pen p = new Pen(Color.Black, 1)) { g.DrawEllipse(p, 10, 10, 6, 6); }
+            } catch {
+                using (Brush b = new SolidBrush(c)) { g.FillEllipse(b, 2, 2, 12, 12); }
+                using (Pen p = new Pen(Color.White, 1)) { g.DrawEllipse(p, 2, 2, 12, 12); }
+            }
         }
         IntPtr hIcon = bmp.GetHicon();
         Icon icon = (Icon)Icon.FromHandle(hIcon).Clone();
@@ -193,26 +201,16 @@ class ReplayTrayApp : ApplicationContext {
         return icon;
     }
 
-    private Icon CreateStatusIcon(Color c) {
-        try {
-            if (cachedBaseIcon == null) {
-                cachedBaseIcon = new Bitmap(Path.Combine(baseDir, "icon.ico"));
-            }
-            Bitmap bmp = new Bitmap(16, 16);
-            using (Graphics g = Graphics.FromImage(bmp)) {
-                g.Clear(Color.Transparent);
-                g.DrawImage(cachedBaseIcon, 0, 0, 16, 16);
-                using (Brush b = new SolidBrush(c)) { g.FillEllipse(b, 10, 10, 6, 6); }
-                using (Pen p = new Pen(Color.Black, 1)) { g.DrawEllipse(p, 10, 10, 6, 6); }
-            }
-            IntPtr hIcon = bmp.GetHicon();
-            Icon icon = (Icon)Icon.FromHandle(hIcon).Clone();
-            DestroyIcon(hIcon);
-            bmp.Dispose();
-            return icon;
-        } catch {
-            return CreateCircleIcon(c);
-        }
+    private void InitIcons() {
+        iconRed = MakeIcon(Color.Red);
+        iconOrange = MakeIcon(Color.Orange);
+        iconGreen = MakeIcon(Color.LimeGreen);
+    }
+
+    private Icon GetStatusIcon(Color c) {
+        if (c == Color.Red) return iconRed;
+        if (c == Color.LimeGreen) return iconGreen;
+        return iconOrange;
     }
 
     private void UpdateStatus(string text, Color color) {
@@ -221,13 +219,11 @@ class ReplayTrayApp : ApplicationContext {
                 trayIcon.ContextMenuStrip.BeginInvoke(new Action(delegate { UpdateStatus(text, color); }));
                 return;
             }
-            Icon oldIcon = trayIcon.Icon;
             string full = "Replay Editor: " + text;
             trayIcon.Text = full.Length > 60 ? full.Substring(0, 60) : full;
-            trayIcon.Icon = CreateStatusIcon(color);
+            trayIcon.Icon = GetStatusIcon(color);
             statusItem.Text = "Status: " + text;
-            if (oldIcon != null) { try { oldIcon.Dispose(); } catch {} }
-        } catch {}
+        } catch (Exception ex) { LogCrash("UpdateStatus", ex); }
     }
 
     private bool EnsureMidiOpen() {
