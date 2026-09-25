@@ -32,10 +32,10 @@ class ReplayTrayApp : ApplicationContext {
     [DllImport("winmm.dll", CharSet = CharSet.Ansi)] public static extern uint midiInGetDevCapsA(UIntPtr id, out MIDIINCAPSA caps, uint cb);
 
     // === teVirtualMIDI direct API (fallback when WinMM is broken) ===
-    [DllImport("teVirtualMIDI64.dll", EntryPoint = "virtualMIDICreatePortEx3", CharSet = CharSet.Unicode, SetLastError = true)]
-    public static extern IntPtr virtualMIDICreatePortEx3_64([MarshalAs(UnmanagedType.LPWStr)] string portName, IntPtr callback, IntPtr userData, uint maxSysexLength, uint flags);
-    [DllImport("teVirtualMIDI32.dll", EntryPoint = "virtualMIDICreatePortEx3", CharSet = CharSet.Unicode, SetLastError = true)]
-    public static extern IntPtr virtualMIDICreatePortEx3_32([MarshalAs(UnmanagedType.LPWStr)] string portName, IntPtr callback, IntPtr userData, uint maxSysexLength, uint flags);
+    [DllImport("teVirtualMIDI64.dll", EntryPoint = "virtualMIDICreatePortEx2", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr virtualMIDICreatePortEx2_64([MarshalAs(UnmanagedType.LPWStr)] string portName, IntPtr callback, IntPtr userData, uint maxSysexLength, uint flags);
+    [DllImport("teVirtualMIDI32.dll", EntryPoint = "virtualMIDICreatePortEx2", CharSet = CharSet.Unicode, SetLastError = true)]
+    public static extern IntPtr virtualMIDICreatePortEx2_32([MarshalAs(UnmanagedType.LPWStr)] string portName, IntPtr callback, IntPtr userData, uint maxSysexLength, uint flags);
     [DllImport("teVirtualMIDI64.dll", EntryPoint = "virtualMIDISendData", SetLastError = true)]
     public static extern bool virtualMIDISendData_64(IntPtr port, byte[] data, uint length);
     [DllImport("teVirtualMIDI32.dll", EntryPoint = "virtualMIDISendData", SetLastError = true)]
@@ -178,13 +178,31 @@ class ReplayTrayApp : ApplicationContext {
     }
 
     private Form hiddenForm;
+    private Bitmap bmpRed, bmpOrange, bmpGreen;
     private Icon iconRed, iconOrange, iconGreen;
 
+    private Icon MakeIcon(Color c, out Bitmap bmp) {
+        bmp = new Bitmap(16, 16);
+        using (Graphics g = Graphics.FromImage(bmp)) {
+            g.Clear(Color.Transparent);
+            try {
+                using (Bitmap baseImg = new Bitmap(Path.Combine(baseDir, "icon.ico"))) {
+                    g.DrawImage(baseImg, 0, 0, 16, 16);
+                }
+                using (Brush b = new SolidBrush(c)) { g.FillEllipse(b, 10, 10, 6, 6); }
+                using (Pen p = new Pen(Color.Black, 1)) { g.DrawEllipse(p, 10, 10, 6, 6); }
+            } catch {
+                using (Brush b = new SolidBrush(c)) { g.FillEllipse(b, 2, 2, 12, 12); }
+                using (Pen p = new Pen(Color.White, 1)) { g.DrawEllipse(p, 2, 2, 12, 12); }
+            }
+        }
+        return Icon.FromHandle(bmp.GetHicon());
+    }
+
     private void InitIcons() {
-        // POUZIVAME STANDARDNI WINDOWS IKONY PRO DIAGNOSTIKU
-        iconRed = SystemIcons.Error;
-        iconOrange = SystemIcons.Warning;
-        iconGreen = SystemIcons.Information;
+        iconRed = MakeIcon(Color.Red, out bmpRed);
+        iconOrange = MakeIcon(Color.Orange, out bmpOrange);
+        iconGreen = MakeIcon(Color.LimeGreen, out bmpGreen);
     }
 
     private Icon GetStatusIcon(Color c) {
@@ -237,9 +255,9 @@ class ReplayTrayApp : ApplicationContext {
                 try {
                     IntPtr port = IntPtr.Zero;
                     if (is64bit)
-                        port = virtualMIDICreatePortEx3_64("SoftLab ReplayBridge", IntPtr.Zero, IntPtr.Zero, 65535, 1);
+                        port = virtualMIDICreatePortEx2_64("SoftLab ReplayBridge", IntPtr.Zero, IntPtr.Zero, 65535, 1);
                     else
-                        port = virtualMIDICreatePortEx3_32("SoftLab ReplayBridge", IntPtr.Zero, IntPtr.Zero, 65535, 1);
+                        port = virtualMIDICreatePortEx2_32("SoftLab ReplayBridge", IntPtr.Zero, IntPtr.Zero, 65535, 1);
                     if (port != IntPtr.Zero) {
                         virtualMidiPort = port;
                         useDirectMidi = true;
