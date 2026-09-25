@@ -175,8 +175,6 @@ class ReplayTrayApp : ApplicationContext {
         settingsForm.Show();
     }
 
-    [DllImport("user32.dll")] private static extern bool DestroyIcon(IntPtr handle);
-
     private Icon iconRed, iconOrange, iconGreen;
 
     private Icon MakeIcon(Color c) {
@@ -195,8 +193,8 @@ class ReplayTrayApp : ApplicationContext {
             }
         }
         IntPtr hIcon = bmp.GetHicon();
-        Icon icon = (Icon)Icon.FromHandle(hIcon).Clone();
-        DestroyIcon(hIcon);
+        Icon icon = Icon.FromHandle(hIcon);
+        // ZADNE DestroyIcon! Tyhle tri ikony si nechavame naporad.
         bmp.Dispose();
         return icon;
     }

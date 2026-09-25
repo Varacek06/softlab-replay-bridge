@@ -1,4 +1,15 @@
 @echo off
+:: --- KONTROLA A VYNUCENI PRAV SPRAVCE ---
+net session >nul 2>&1
+if %errorLevel% == 0 (
+    goto :mam_prava
+) else (
+    echo Zadam o prava spravce...
+    powershell -Command "Start-Process '%~f0' -Verb RunAs"
+    exit /b
+)
+:mam_prava
+:: --- KONEC KONTROLY ---
 echo ========================================================
 echo   Blackmagic Replay Editor Bridge - Instalace
 echo ========================================================
