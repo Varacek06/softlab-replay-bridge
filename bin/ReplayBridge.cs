@@ -9,15 +9,15 @@ using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
 class ReplayTrayApp : ApplicationContext {
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-    public struct MIDIOUTCAPSA {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct MIDIOUTCAPSW {
         public ushort wMid; public ushort wPid; public uint vDriverVersion;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string szPname;
         public ushort wTechnology; public ushort wVoices; public ushort wNotes;
         public ushort wChannelMask; public uint dwSupport;
     }
-    [DllImport("winmm.dll", CharSet = CharSet.Ansi)] public static extern uint midiOutGetNumDevs();
-    [DllImport("winmm.dll", CharSet = CharSet.Ansi)] public static extern uint midiOutGetDevCapsA(UIntPtr id, out MIDIOUTCAPSA caps, uint cb);
+    [DllImport("winmm.dll")] public static extern uint midiOutGetNumDevs();
+    [DllImport("winmm.dll", CharSet = CharSet.Unicode)] public static extern uint midiOutGetDevCapsW(UIntPtr id, out MIDIOUTCAPSW caps, uint cb);
     [DllImport("winmm.dll")] public static extern uint midiOutOpen(out IntPtr h, uint id, IntPtr cb, IntPtr inst, uint flags);
     [DllImport("winmm.dll")] public static extern uint midiOutShortMsg(IntPtr h, uint msg);
     [DllImport("winmm.dll")] public static extern uint midiOutClose(IntPtr h);
@@ -44,18 +44,18 @@ class ReplayTrayApp : ApplicationContext {
         configPath = Path.Combine(baseDir, "config.json");
         LoadConfig();
 
-        statusItem = new ToolStripMenuItem("Stav: Startuji...");
+        statusItem = new ToolStripMenuItem("Status: Starting...");
         statusItem.Enabled = false;
-        lastKeyItem = new ToolStripMenuItem("Posledni tlacitko: -");
+        lastKeyItem = new ToolStripMenuItem("Last key: -");
         lastKeyItem.Enabled = false;
 
-        ToolStripMenuItem settingsItem = new ToolStripMenuItem("Nastaveni rychlosti kolecka...", null, OnOpenSettings);
+        ToolStripMenuItem settingsItem = new ToolStripMenuItem("Wheel Speed Settings...", null, OnOpenSettings);
         settingsItem.Font = new Font(settingsItem.Font, FontStyle.Bold);
 
-        invertWheelItem = new ToolStripMenuItem("Otocit smer kolecka (Invert Jog)", null, OnToggleInvert);
+        invertWheelItem = new ToolStripMenuItem("Invert Wheel Direction (Invert Jog)", null, OnToggleInvert);
         invertWheelItem.Checked = invertWheel;
 
-        autoStartItem = new ToolStripMenuItem("Spoustet automaticky po startu Windows", null, OnToggleAutoStart);
+        autoStartItem = new ToolStripMenuItem("Start automatically with Windows", null, OnToggleAutoStart);
         autoStartItem.Checked = IsAutoStartEnabled();
 
         ContextMenuStrip menu = new ContextMenuStrip();
@@ -65,13 +65,13 @@ class ReplayTrayApp : ApplicationContext {
         menu.Items.Add(settingsItem);
         menu.Items.Add(invertWheelItem);
         menu.Items.Add(autoStartItem);
-        menu.Items.Add(new ToolStripMenuItem("Restartovat spojeni", null, OnRestartBridge));
+        menu.Items.Add(new ToolStripMenuItem("Restart Bridge Connection", null, OnRestartBridge));
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(new ToolStripMenuItem("Ukoncit Replay Bridge", null, OnExit));
+        menu.Items.Add(new ToolStripMenuItem("Exit Replay Bridge", null, OnExit));
 
         trayIcon = new NotifyIcon();
-        trayIcon.Icon = CreateCircleIcon(Color.Orange);
-        trayIcon.Text = "Replay Editor Bridge (Dvojklik = Nastaveni rychlosti)";
+        trayIcon.Icon = CreateStatusIcon(Color.Orange);
+        trayIcon.Text = "Replay Editor Bridge (Double-click for Settings)";
         trayIcon.ContextMenuStrip = menu;
         trayIcon.DoubleClick += OnOpenSettings;
         trayIcon.Visible = true;
@@ -114,25 +114,25 @@ class ReplayTrayApp : ApplicationContext {
             return;
         }
         settingsForm = new Form();
-        settingsForm.Text = "Replay Editor - Rychlost kolecka";
-        settingsForm.Size = new Size(380, 260);
+        settingsForm.Text = "Replay Editor - Wheel Speed";
+        settingsForm.Size = new Size(400, 260);
         settingsForm.FormBorderStyle = FormBorderStyle.FixedDialog;
         settingsForm.MaximizeBox = false;
         settingsForm.MinimizeBox = false;
         settingsForm.StartPosition = FormStartPosition.CenterScreen;
 
-        Label l1 = new Label() { Text = "SLOW JOG rychlost (jemny):", Left = 20, Top = 25, Width = 200 };
-        NumericUpDown n1 = new NumericUpDown() { Left = 230, Top = 22, Width = 100, Minimum = 1, Maximum = 100, Value = slowSpeed };
+        Label l1 = new Label() { Text = "SLOW JOG Speed (fine):", Left = 20, Top = 25, Width = 220 };
+        NumericUpDown n1 = new NumericUpDown() { Left = 250, Top = 22, Width = 100, Minimum = 1, Maximum = 100, Value = slowSpeed };
 
-        Label l2 = new Label() { Text = "JOG rychlost (hlavni 1:1):", Left = 20, Top = 65, Width = 200 };
-        NumericUpDown n2 = new NumericUpDown() { Left = 230, Top = 62, Width = 100, Minimum = 1, Maximum = 500, Value = jogSpeed };
+        Label l2 = new Label() { Text = "JOG Speed (main 1:1):", Left = 20, Top = 65, Width = 220 };
+        NumericUpDown n2 = new NumericUpDown() { Left = 250, Top = 62, Width = 100, Minimum = 1, Maximum = 500, Value = jogSpeed };
 
-        Label l3 = new Label() { Text = "SCRL rychlost (mega rychlost):", Left = 20, Top = 105, Width = 200 };
-        NumericUpDown n3 = new NumericUpDown() { Left = 230, Top = 102, Width = 100, Minimum = 10, Maximum = 5000, Increment = 25, Value = scrlSpeed };
+        Label l3 = new Label() { Text = "SCRL Speed (fast scroll):", Left = 20, Top = 105, Width = 220 };
+        NumericUpDown n3 = new NumericUpDown() { Left = 250, Top = 102, Width = 100, Minimum = 10, Maximum = 5000, Increment = 25, Value = scrlSpeed };
 
-        CheckBox cbInv = new CheckBox() { Text = "Otocit smer kolecka (Invert Jog)", Left = 20, Top = 142, Width = 300, Checked = invertWheel };
+        CheckBox cbInv = new CheckBox() { Text = "Invert Wheel Direction (Invert Jog)", Left = 20, Top = 142, Width = 300, Checked = invertWheel };
 
-        Button btnSave = new Button() { Text = "Ulozit a pouzit", Left = 110, Top = 175, Width = 150, Height = 32 };
+        Button btnSave = new Button() { Text = "Save and Apply", Left = 120, Top = 175, Width = 150, Height = 32 };
         btnSave.Click += (s, ev) => {
             slowSpeed = (int)n1.Value;
             jogSpeed = (int)n2.Value;
@@ -157,25 +157,49 @@ class ReplayTrayApp : ApplicationContext {
         return Icon.FromHandle(bmp.GetHicon());
     }
 
+    private Icon CreateStatusIcon(Color c) {
+        try {
+            Bitmap baseIcon = new Bitmap(Path.Combine(baseDir, "icon.ico"));
+            Bitmap bmp = new Bitmap(16, 16);
+            using (Graphics g = Graphics.FromImage(bmp)) {
+                g.Clear(Color.Transparent);
+                g.DrawImage(baseIcon, 0, 0, 16, 16);
+                using (Brush b = new SolidBrush(c)) { g.FillEllipse(b, 10, 10, 6, 6); }
+                using (Pen p = new Pen(Color.Black, 1)) { g.DrawEllipse(p, 10, 10, 6, 6); }
+            }
+            return Icon.FromHandle(bmp.GetHicon());
+        } catch {
+            return CreateCircleIcon(c);
+        }
+    }
+
     private void UpdateStatus(string text, Color color) {
         try {
             string full = "Replay Editor: " + text;
             trayIcon.Text = full.Substring(0, Math.Min(60, full.Length));
-            trayIcon.Icon = CreateCircleIcon(color);
-            statusItem.Text = "Stav: " + text;
+            trayIcon.Icon = CreateStatusIcon(color);
+            statusItem.Text = "Status: " + text;
         } catch {}
     }
 
     private bool EnsureMidiOpen() {
         if (midiHandle != IntPtr.Zero) return true;
         uint count = midiOutGetNumDevs();
-        for (uint i = 0; i < count; i++) {
-            MIDIOUTCAPSA caps;
-            midiOutGetDevCapsA((UIntPtr)i, out caps, (uint)Marshal.SizeOf(typeof(MIDIOUTCAPSA)));
-            if (caps.szPname != null && caps.szPname.IndexOf("loopMIDI", StringComparison.OrdinalIgnoreCase) >= 0) {
-                if (midiOutOpen(out midiHandle, i, IntPtr.Zero, IntPtr.Zero, 0) == 0) return true;
+        try {
+            using (StreamWriter sw = new StreamWriter(Path.Combine(baseDir, "midi_debug.txt"), false)) {
+                sw.WriteLine("Total MIDI OUT devices: " + count);
+                for (uint i = 0; i < count; i++) {
+                    MIDIOUTCAPSW caps;
+                    uint res = midiOutGetDevCapsW((UIntPtr)i, out caps, (uint)Marshal.SizeOf(typeof(MIDIOUTCAPSW)));
+                    sw.WriteLine(string.Format("Device {0}: name='{1}', result={2}", i, caps.szPname ?? "null", res));
+                    if (caps.szPname != null && caps.szPname.IndexOf("loopMIDI", StringComparison.OrdinalIgnoreCase) >= 0) {
+                        uint openRes = midiOutOpen(out midiHandle, i, IntPtr.Zero, IntPtr.Zero, 0);
+                        sw.WriteLine(string.Format("  -> Match found! midiOutOpen result: {0}", openRes));
+                        if (openRes == 0) return true;
+                    }
+                }
             }
-        }
+        } catch { }
         return false;
     }
 
@@ -215,7 +239,7 @@ class ReplayTrayApp : ApplicationContext {
                     } else if (p[0] == "ON") {
                         int note = int.Parse(p[1]);
                         midiOutShortMsg(midiHandle, 0x90u | ((uint)(note & 0x7F) << 8) | (127u << 16));
-                        if (p.Length >= 3) lastKeyItem.Text = "Posledni: MIDIKey_" + p[2].Replace("-", "_") + "_DOWN";
+                        if (p.Length >= 3) lastKeyItem.Text = "Last key: MIDIKey_" + p[2].Replace("-", "_") + "_DOWN";
                     } else if (p[0] == "OFF") {
                         int note = int.Parse(p[1]);
                         midiOutShortMsg(midiHandle, 0x80u | ((uint)(note & 0x7F) << 8));
@@ -226,7 +250,7 @@ class ReplayTrayApp : ApplicationContext {
                     } else if (p[0] == "STATUS") {
                         if (p[1] == "READY") UpdateStatus("Pripojeno (Dvojklik = Nastaveni)", Color.LimeGreen);
                         else if (p[1] == "WAIT_USB") UpdateStatus("Cekam na pripojeni USB pultu...", Color.Orange);
-                        else if (p[1] == "BUSY") UpdateStatus("Pult je blokovan (vypni Companion)", Color.Red);
+                        else if (p[1] == "BUSY") UpdateStatus("Pult je blokovan (vypni Companion/Resolve)", Color.Red);
                         else UpdateStatus("Odpojeno, zkusim znovu...", Color.Orange);
                     }
                 }
