@@ -70,7 +70,10 @@ class ReplayTrayApp : ApplicationContext {
         IntPtr forceHandle = hiddenForm.Handle; // Force window handle creation on UI thread
 
         baseDir = AppDomain.CurrentDomain.BaseDirectory;
-        configPath = Path.Combine(baseDir, "config.json");
+        string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SoftLabReplayBridge");
+        if (!Directory.Exists(appDataPath)) Directory.CreateDirectory(appDataPath);
+        configPath = Path.Combine(appDataPath, "config.json");
+        
         InitIcons();
         LoadConfig();
 
@@ -229,7 +232,9 @@ class ReplayTrayApp : ApplicationContext {
         uint outCount = midiOutGetNumDevs();
         uint inCount = midiInGetNumDevs();
         try {
-            using (StreamWriter sw = new StreamWriter(Path.Combine(baseDir, "midi_debug.txt"), false)) {
+            string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SoftLabReplayBridge");
+            if (!Directory.Exists(appDataPath)) Directory.CreateDirectory(appDataPath);
+            using (StreamWriter sw = new StreamWriter(Path.Combine(appDataPath, "midi_debug.txt"), false)) {
                 sw.WriteLine(string.Format("Platform: {0}-bit process", is64bit ? "64" : "32"));
                 sw.WriteLine(string.Format("MIDI OUT devices: {0}", outCount));
                 for (uint i = 0; i < outCount; i++) {
@@ -390,7 +395,9 @@ class ReplayTrayApp : ApplicationContext {
         Application.Exit();
     }
 
-    static string crashLogPath = "C:\\SoftLab_ReplayBridge\\crash.txt";
+    static string crashLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), 
+        "SoftLabReplayBridge", "crash.txt");
 
     static void LogCrash(string source, Exception ex) {
         try {

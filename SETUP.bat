@@ -15,13 +15,15 @@ echo   Blackmagic Replay Editor Bridge - Instalace
 echo ========================================================
 echo.
 
+set "INSTALL_DIR=%ProgramFiles%\SoftLab_ReplayBridge"
+
 echo [1/5] Ukoncuji bezici procesy...
 taskkill /F /IM ReplayBridge.exe >nul 2>&1
 taskkill /F /IM node.exe >nul 2>&1
 
-echo [2/5] Kopiruju soubory do C:\SoftLab_ReplayBridge...
-if not exist "C:\SoftLab_ReplayBridge" mkdir "C:\SoftLab_ReplayBridge"
-xcopy /E /I /Y "%~dp0bin\*" "C:\SoftLab_ReplayBridge\"
+echo [2/5] Kopiruju soubory do %INSTALL_DIR%...
+if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
+xcopy /E /I /Y "%~dp0bin\*" "%INSTALL_DIR%\"
 
 echo [3/5] Kompiluju ReplayBridge.exe...
 set CSC=
@@ -33,7 +35,7 @@ if exist "C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe" (
 if "%CSC%"=="" (
     echo   !!! CHYBA: csc.exe nenalezen, pouzivam predkompilovany exe
 ) else (
-    "%CSC%" /nologo /platform:x86 /target:winexe /win32icon:"C:\SoftLab_ReplayBridge\icon.ico" /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:"C:\SoftLab_ReplayBridge\ReplayBridge.exe" "C:\SoftLab_ReplayBridge\ReplayBridge.cs"
+    "%CSC%" /nologo /platform:x86 /target:winexe /win32icon:"%INSTALL_DIR%\icon.ico" /r:System.Windows.Forms.dll /r:System.Drawing.dll /out:"%INSTALL_DIR%\ReplayBridge.exe" "%INSTALL_DIR%\ReplayBridge.cs"
     if errorlevel 1 (
         echo   !!! CHYBA: Kompilace selhala!
         pause
@@ -43,17 +45,17 @@ if "%CSC%"=="" (
 )
 
 echo [4/5] Konfigurace systemu...
-reg import "C:\SoftLab_ReplayBridge\SoftLab_ReplayEditor.reg"
+reg import "%INSTALL_DIR%\SoftLab_ReplayEditor.reg"
 taskkill /F /IM slgpiservers.exe >nul 2>&1
-cscript //nologo "C:\SoftLab_ReplayBridge\make_shortcut.vbs"
+cscript //nologo "%INSTALL_DIR%\make_shortcut.vbs" "%INSTALL_DIR%"
 
 echo [5/5] Spoustim ReplayBridge...
-start "" "C:\SoftLab_ReplayBridge\ReplayBridge.exe"
+start "" "%INSTALL_DIR%\ReplayBridge.exe"
 
 echo.
 echo ========================================================
 echo   HOTOVO! ReplayBridge bezi (ikona u hodin).
-echo   Pokud sviti cervena, podivej se na soubor:
-echo   C:\SoftLab_ReplayBridge\midi_debug.txt
+echo   Pokud sviti cervena, podivej se do slozky:
+echo   %AppData%\SoftLabReplayBridge\midi_debug.txt
 echo ========================================================
 pause
