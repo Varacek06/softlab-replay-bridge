@@ -1,0 +1,5 @@
+bin/node.exe
+bin/MidiSender.exe
+bin/MidiSender.cs
+*.log
+AGENTS.md
