@@ -1,4 +1,5 @@
 bin/node.exe
+bin/ReplayBridge.exe
 bin/MidiSender.exe
 bin/MidiSender.cs
 *.log
