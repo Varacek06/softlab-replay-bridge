@@ -65,8 +65,12 @@ class ReplayTrayApp : ApplicationContext {
     private string baseDir;
     private string configPath;
     private Form settingsForm = null;
+    private Control syncControl;
 
     public ReplayTrayApp() {
+        syncControl = new Control();
+        IntPtr forceHandle = syncControl.Handle; // Force window handle creation on UI thread
+
         baseDir = AppDomain.CurrentDomain.BaseDirectory;
         configPath = Path.Combine(baseDir, "config.json");
         InitIcons();
@@ -213,8 +217,8 @@ class ReplayTrayApp : ApplicationContext {
 
     private void UpdateStatus(string text, Color color) {
         try {
-            if (trayIcon.ContextMenuStrip != null && trayIcon.ContextMenuStrip.InvokeRequired) {
-                trayIcon.ContextMenuStrip.BeginInvoke(new Action(delegate { UpdateStatus(text, color); }));
+            if (syncControl.InvokeRequired) {
+                syncControl.BeginInvoke(new Action(delegate { UpdateStatus(text, color); }));
                 return;
             }
             string full = "Replay Editor: " + text;
