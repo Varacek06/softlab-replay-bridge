@@ -395,14 +395,35 @@ class ReplayTrayApp : ApplicationContext {
         Application.Exit();
     }
 
+    static string crashLogPath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "SoftLabReplayBridge_crash.txt");
+
+    static void LogCrash(string source, Exception ex) {
+        try {
+            File.AppendAllText(crashLogPath, string.Format(
+                "\r\n[{0}] {1}: {2}\r\n{3}\r\n",
+                DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"), source, ex.Message, ex.StackTrace));
+        } catch {}
+    }
+
     [STAThread]
     static void Main() {
+        Application.ThreadException += (s, e) => LogCrash("ThreadException", e.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (s, e) => {
+            Exception ex = e.ExceptionObject as Exception;
+            if (ex != null) LogCrash("UnhandledException", ex);
+        };
         bool createdNew;
         using (Mutex m = new Mutex(true, "SoftLabReplayBridgeMutex", out createdNew)) {
             if (!createdNew) return;
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
-            Application.Run(new ReplayTrayApp());
+            try {
+                Application.Run(new ReplayTrayApp());
+            } catch (Exception ex) {
+                LogCrash("Main", ex);
+            }
         }
     }
 }
