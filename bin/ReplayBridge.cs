@@ -69,6 +69,7 @@ class ReplayTrayApp : ApplicationContext {
     public ReplayTrayApp() {
         baseDir = AppDomain.CurrentDomain.BaseDirectory;
         configPath = Path.Combine(baseDir, "config.json");
+        InitIcons();
         LoadConfig();
 
         statusItem = new ToolStripMenuItem("Status: Starting...");
@@ -97,7 +98,7 @@ class ReplayTrayApp : ApplicationContext {
         menu.Items.Add(new ToolStripMenuItem("Exit Replay Bridge", null, OnExit));
 
         trayIcon = new NotifyIcon();
-        trayIcon.Icon = CreateStatusIcon(Color.Orange);
+        trayIcon.Icon = GetStatusIcon(Color.Orange);
         trayIcon.Text = "Replay Editor Bridge (Double-click for Settings)";
         trayIcon.ContextMenuStrip = menu;
         trayIcon.DoubleClick += OnOpenSettings;
@@ -395,9 +396,7 @@ class ReplayTrayApp : ApplicationContext {
         Application.Exit();
     }
 
-    static string crashLogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "SoftLabReplayBridge_crash.txt");
+    static string crashLogPath = "C:\\SoftLab_ReplayBridge\\crash.txt";
 
     static void LogCrash(string source, Exception ex) {
         try {
