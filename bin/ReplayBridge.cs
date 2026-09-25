@@ -9,15 +9,15 @@ using System.Text.RegularExpressions;
 using Microsoft.Win32;
 
 class ReplayTrayApp : ApplicationContext {
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi)]
-    public struct MIDIOUTCAPSA {
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    public struct MIDIOUTCAPSW {
         public ushort wMid; public ushort wPid; public uint vDriverVersion;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)] public string szPname;
         public ushort wTechnology; public ushort wVoices; public ushort wNotes;
         public ushort wChannelMask; public uint dwSupport;
     }
-    [DllImport("winmm.dll", CharSet = CharSet.Ansi)] public static extern uint midiOutGetNumDevs();
-    [DllImport("winmm.dll", CharSet = CharSet.Ansi)] public static extern uint midiOutGetDevCapsA(UIntPtr id, out MIDIOUTCAPSA caps, uint cb);
+    [DllImport("winmm.dll")] public static extern uint midiOutGetNumDevs();
+    [DllImport("winmm.dll", CharSet = CharSet.Unicode)] public static extern uint midiOutGetDevCapsW(UIntPtr id, out MIDIOUTCAPSW caps, uint cb);
     [DllImport("winmm.dll")] public static extern uint midiOutOpen(out IntPtr h, uint id, IntPtr cb, IntPtr inst, uint flags);
     [DllImport("winmm.dll")] public static extern uint midiOutShortMsg(IntPtr h, uint msg);
     [DllImport("winmm.dll")] public static extern uint midiOutClose(IntPtr h);
@@ -186,8 +186,8 @@ class ReplayTrayApp : ApplicationContext {
         if (midiHandle != IntPtr.Zero) return true;
         uint count = midiOutGetNumDevs();
         for (uint i = 0; i < count; i++) {
-            MIDIOUTCAPSA caps;
-            midiOutGetDevCapsA((UIntPtr)i, out caps, (uint)Marshal.SizeOf(typeof(MIDIOUTCAPSA)));
+            MIDIOUTCAPSW caps;
+            midiOutGetDevCapsW((UIntPtr)i, out caps, (uint)Marshal.SizeOf(typeof(MIDIOUTCAPSW)));
             if (caps.szPname != null && caps.szPname.IndexOf("loopMIDI", StringComparison.OrdinalIgnoreCase) >= 0) {
                 if (midiOutOpen(out midiHandle, i, IntPtr.Zero, IntPtr.Zero, 0) == 0) return true;
             }
