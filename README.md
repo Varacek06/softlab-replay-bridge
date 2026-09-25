@@ -31,11 +31,13 @@ Most funguje jako lehká "System Tray" aplikace pro Windows, která na pozadí p
 
 ## Instalace
 
-1. Stáhněte si nejnovější instalační archiv z *Releases* na GitHubu a rozbalte jej.
-2. Spusťte soubor **`SETUP.bat`** a případně potvrďte žádost o oprávnění správce.
-3. Instalační skript zařídí vše potřebné:
-    * Zkopíruje soubory do složky programu (`C:\Program Files\SoftLab_ReplayBridge`).
-    * Zkompiluje řídící C# aplikaci `ReplayBridge.exe` bez zbytečných závislostí.
+1. Stáhněte a nainstalujte [loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html) (obsahuje nezbytný driver teVirtualMIDI).
+2. Otevřete loopMIDI a vytvořte port s přesným názvem: `loopMIDI Port` (napište do spodního pole a klikněte na **+**). V nastavení programu zaškrtněte **Autostart loopMIDI** a **Start minimized**.
+3. Stáhněte si nejnovější instalační archiv `ReplayEditor_Setup.zip` z *Releases* na GitHubu a rozbalte jej.
+4. Spusťte soubor **`SETUP.bat`** (automaticky si vyžádá oprávnění správce).
+5. Instalační skript zařídí vše ostatní:
+    * Zkopíruje soubory do `C:\Program Files\SoftLab_ReplayBridge`.
+    * Zkompiluje řídící C# aplikaci `ReplayBridge.exe`.
     * Zaregistruje potřebná nastavení do SoftLab registrů.
     * Vytvoří zástupce na ploše a rovnou aplikaci spustí.
 
@@ -103,9 +105,11 @@ The bridge acts as a lightweight, portable System Tray application for Windows, 
 
 ## Installation Guide
 
-1. Download the latest installation archive from the *Releases* tab on GitHub and extract it.
-2. Run the **`SETUP.bat`** file (it will automatically ask for Administrator privileges).
-3. The setup script will handle everything:
+1. Download and install [loopMIDI](https://www.tobias-erichsen.de/software/loopmidi.html) (it includes the necessary teVirtualMIDI driver).
+2. Open loopMIDI and create a port named exactly: `loopMIDI Port` (type it into the bottom field and click **+**). Right click the tray icon and check **Autostart loopMIDI** and **Start minimized**.
+3. Download the latest installation archive `ReplayEditor_Setup.zip` from the *Releases* tab on GitHub and extract it.
+4. Run the **`SETUP.bat`** file (it will automatically request Administrator privileges).
+5. The setup script will handle everything else:
     * Copies files to `C:\Program Files\SoftLab_ReplayBridge\`.
     * Compiles the control application `ReplayBridge.exe`.
     * Registers settings into the SoftLab registry.
