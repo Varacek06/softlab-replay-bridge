@@ -3,3 +3,4 @@ bin/MidiSender.exe
 bin/MidiSender.cs
 *.log
 AGENTS.md
+.DS_Store
