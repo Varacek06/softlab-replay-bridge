@@ -191,10 +191,10 @@ class ReplayTrayApp : ApplicationContext {
                 for (uint i = 0; i < count; i++) {
                     MIDIOUTCAPSW caps;
                     uint res = midiOutGetDevCapsW((UIntPtr)i, out caps, (uint)Marshal.SizeOf(typeof(MIDIOUTCAPSW)));
-                    sw.WriteLine($"Device {i}: name='{(caps.szPname ?? "null")}', result={res}");
+                    sw.WriteLine(string.Format("Device {0}: name='{1}', result={2}", i, caps.szPname ?? "null", res));
                     if (caps.szPname != null && caps.szPname.IndexOf("loopMIDI", StringComparison.OrdinalIgnoreCase) >= 0) {
                         uint openRes = midiOutOpen(out midiHandle, i, IntPtr.Zero, IntPtr.Zero, 0);
-                        sw.WriteLine($"  -> Match found! midiOutOpen result: {openRes}");
+                        sw.WriteLine(string.Format("  -> Match found! midiOutOpen result: {0}", openRes));
                         if (openRes == 0) return true;
                     }
                 }
