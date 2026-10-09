@@ -13,9 +13,9 @@ function loadConfig() {
     try {
         if (fs.existsSync(configPath)) {
             const raw = JSON.parse(fs.readFileSync(configPath, "utf8"));
-            cfg.slowSpeed = Math.max(1, Number(raw.slowSpeed) || 3);
-            cfg.jogSpeed  = Math.max(1, Number(raw.jogSpeed)  || 10);
-            cfg.scrlSpeed = Math.max(1, Number(raw.scrlSpeed) || 350);
+            cfg.slowSpeed = Math.max(0.1, Number(raw.slowSpeed) || 3);
+            cfg.jogSpeed  = Math.max(0.1, Number(raw.jogSpeed)  || 10);
+            cfg.scrlSpeed = Math.max(0.1, Number(raw.scrlSpeed) || 350);
         }
     } catch (e) {}
 }
@@ -94,17 +94,24 @@ const hostCallbacks = {
         }
         const note = buttonMap[id];
         if (note !== undefined) console.log("OFF|" + note);
-    },
-    sendVariableValue: (name, val) => {
-        if (name === "tbarValueVariable") {
-            const midiVal = Math.max(0, Math.min(127, Math.round(val * 127)));
-            console.log("CC|1|" + midiVal);
-            if (surfaceInstance) surfaceInstance.onVariableValue("tbarLeds", Math.round(val * 16));
-        } else if (name === "jogVelocityVariable") {
-            // Pri zmene smeru otaceni vynulujeme zbytek, at kolecko reaguje okamzite
-            if ((val > 0 && accum < 0) || (val < 0 && accum > 0)) accum = 0;
-            accum += val;
-        }
+    }
+};
+
+let lastWheelTime = 0;
+const originalSend = hostCallbacks.sendVariableValue;
+hostCallbacks.sendVariableValue = (name, val) => {
+    if (name === "tbarValueVariable") {
+        const midiVal = Math.max(0, Math.min(127, Math.round(val * 127)));
+        console.log("CC|1|" + midiVal);
+        if (surfaceInstance) surfaceInstance.onVariableValue("tbarLeds", Math.round(val * 16));
+    } else if (name === "jogVelocityVariable") {
+        const now = Date.now();
+        if (now - lastWheelTime > 150) accum = 0; // Vynulovat zbytek pri zastaveni
+        lastWheelTime = now;
+
+        // Pri zmene smeru otaceni vynulujeme zbytek, at kolecko reaguje okamzite
+        if ((val > 0 && accum < 0) || (val < 0 && accum > 0)) accum = 0;
+        accum += val;
     }
 };
 

@@ -58,9 +58,9 @@ class ReplayTrayApp : ApplicationContext {
     private Process nodeProc = null;
     private volatile bool running = true;
     private volatile bool invertWheel = false;
-    private int slowSpeed = 3;
-    private int jogSpeed = 10;
-    private int scrlSpeed = 350;
+    private float slowSpeed = 3f;
+    private float jogSpeed = 10f;
+    private float scrlSpeed = 350f;
     private Thread workerThread;
     private string baseDir;
     private string configPath;
@@ -118,13 +118,13 @@ class ReplayTrayApp : ApplicationContext {
         try {
             if (File.Exists(configPath)) {
                 string txt = File.ReadAllText(configPath);
-                Match m1 = Regex.Match(txt, "\"slowSpeed\"\\s*:\\s*(\\d+)");
-                Match m2 = Regex.Match(txt, "\"jogSpeed\"\\s*:\\s*(\\d+)");
-                Match m3 = Regex.Match(txt, "\"scrlSpeed\"\\s*:\\s*(\\d+)");
+                Match m1 = Regex.Match(txt, "\"slowSpeed\"\\s*:\\s*([0-9.]+)");
+                Match m2 = Regex.Match(txt, "\"jogSpeed\"\\s*:\\s*([0-9.]+)");
+                Match m3 = Regex.Match(txt, "\"scrlSpeed\"\\s*:\\s*([0-9.]+)");
                 Match m4 = Regex.Match(txt, "\"invertWheel\"\\s*:\\s*(true|false)");
-                if (m1.Success) slowSpeed = int.Parse(m1.Groups[1].Value);
-                if (m2.Success) jogSpeed = int.Parse(m2.Groups[1].Value);
-                if (m3.Success) scrlSpeed = int.Parse(m3.Groups[1].Value);
+                if (m1.Success) slowSpeed = float.Parse(m1.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+                if (m2.Success) jogSpeed = float.Parse(m2.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+                if (m3.Success) scrlSpeed = float.Parse(m3.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
                 if (m4.Success) invertWheel = m4.Groups[1].Value == "true";
             }
         } catch {}
@@ -133,9 +133,9 @@ class ReplayTrayApp : ApplicationContext {
     private void SaveConfig() {
         try {
             string json = "{\r\n" +
-                "  \"slowSpeed\": " + slowSpeed + ",\r\n" +
-                "  \"jogSpeed\": " + jogSpeed + ",\r\n" +
-                "  \"scrlSpeed\": " + scrlSpeed + ",\r\n" +
+                "  \"slowSpeed\": " + slowSpeed.ToString(System.Globalization.CultureInfo.InvariantCulture) + ",\r\n" +
+                "  \"jogSpeed\": " + jogSpeed.ToString(System.Globalization.CultureInfo.InvariantCulture) + ",\r\n" +
+                "  \"scrlSpeed\": " + scrlSpeed.ToString(System.Globalization.CultureInfo.InvariantCulture) + ",\r\n" +
                 "  \"invertWheel\": " + (invertWheel ? "true" : "false") + "\r\n}";
             File.WriteAllText(configPath, json);
         } catch {}
@@ -155,21 +155,21 @@ class ReplayTrayApp : ApplicationContext {
         settingsForm.StartPosition = FormStartPosition.CenterScreen;
 
         Label l1 = new Label() { Text = "SLOW JOG Speed (fine):", Left = 20, Top = 25, Width = 220 };
-        NumericUpDown n1 = new NumericUpDown() { Left = 250, Top = 22, Width = 100, Minimum = 1, Maximum = 100, Value = slowSpeed };
+        NumericUpDown n1 = new NumericUpDown() { Left = 250, Top = 22, Width = 100, Minimum = 0.1M, Maximum = 1000M, DecimalPlaces = 1, Increment = 0.5M, Value = (decimal)Math.Min(1000f, Math.Max(0.1f, slowSpeed)) };
 
         Label l2 = new Label() { Text = "JOG Speed (main 1:1):", Left = 20, Top = 65, Width = 220 };
-        NumericUpDown n2 = new NumericUpDown() { Left = 250, Top = 62, Width = 100, Minimum = 1, Maximum = 500, Value = jogSpeed };
+        NumericUpDown n2 = new NumericUpDown() { Left = 250, Top = 62, Width = 100, Minimum = 0.1M, Maximum = 1000M, DecimalPlaces = 1, Increment = 0.5M, Value = (decimal)Math.Min(1000f, Math.Max(0.1f, jogSpeed)) };
 
         Label l3 = new Label() { Text = "SCRL Speed (fast scroll):", Left = 20, Top = 105, Width = 220 };
-        NumericUpDown n3 = new NumericUpDown() { Left = 250, Top = 102, Width = 100, Minimum = 10, Maximum = 5000, Increment = 25, Value = scrlSpeed };
+        NumericUpDown n3 = new NumericUpDown() { Left = 250, Top = 102, Width = 100, Minimum = 0.1M, Maximum = 10000M, DecimalPlaces = 1, Increment = 1M, Value = (decimal)Math.Min(10000f, Math.Max(0.1f, scrlSpeed)) };
 
         CheckBox cbInv = new CheckBox() { Text = "Invert Wheel Direction (Invert Jog)", Left = 20, Top = 142, Width = 300, Checked = invertWheel };
 
         Button btnSave = new Button() { Text = "Save and Apply", Left = 120, Top = 175, Width = 150, Height = 32 };
         btnSave.Click += (s, ev) => {
-            slowSpeed = (int)n1.Value;
-            jogSpeed = (int)n2.Value;
-            scrlSpeed = (int)n3.Value;
+            slowSpeed = (float)n1.Value;
+            jogSpeed = (float)n2.Value;
+            scrlSpeed = (float)n3.Value;
             invertWheel = cbInv.Checked;
             invertWheelItem.Checked = invertWheel;
             SaveConfig();
