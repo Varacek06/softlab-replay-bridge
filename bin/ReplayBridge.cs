@@ -54,6 +54,7 @@ class ReplayTrayApp : ApplicationContext {
     private ToolStripMenuItem autoStartItem;
     private IntPtr midiHandle = IntPtr.Zero;
     private IntPtr virtualMidiPort = IntPtr.Zero;
+    private readonly object midiLock = new object();
     private bool useDirectMidi = false;
     private Process nodeProc = null;
     private volatile bool running = true;
@@ -61,6 +62,15 @@ class ReplayTrayApp : ApplicationContext {
     private float slowSpeed = 3f;
     private float jogSpeed = 10f;
     private float scrlSpeed = 350f;
+    private bool jogCurveEnabled = true;
+    private float jogCurveThreshold = 30f;
+    private float jogCurveRate = 0.015f;
+    private float jogCurveMaxMultiplier = 20f;
+    private int shuttleDoubleClickMs = 350;
+    private float shuttleSensitivity = 80f;
+    private float shuttleDeadzone = 0.03f;
+    private volatile bool shuttleMidi14Bit = false;
+    private volatile bool shuttleActive = false;
     private Thread workerThread;
     private string baseDir;
     private string configPath;
@@ -114,31 +124,81 @@ class ReplayTrayApp : ApplicationContext {
         workerThread.Start();
     }
 
-    private void LoadConfig() {
+    private float ReadFloat(string txt, string key, float fallback, float minVal) {
+        Match m = Regex.Match(txt, "\"" + key + "\"\\s*:\\s*(-?[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)");
+        if (m.Success) {
+            float val;
+            if (float.TryParse(m.Groups[1].Value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out val)) {
+                if (val >= minVal) return val;
+            }
+        }
+        return fallback;
+    }
+
+    private int ReadInt(string txt, string key, int fallback, int minVal) {
+        Match m = Regex.Match(txt, "\"" + key + "\"\\s*:\\s*(-?[0-9]+)");
+        if (m.Success) {
+            int val;
+            if (int.TryParse(m.Groups[1].Value, out val) && val >= minVal) return val;
+        }
+        return fallback;
+    }
+
+    private bool ReadBool(string txt, string key, bool fallback) {
+        Match m = Regex.Match(txt, "\"" + key + "\"\\s*:\\s*(true|false)");
+        if (m.Success) return m.Groups[1].Value == "true";
+        return fallback;
+    }
+
+    private void LoadConfigFromFile(string path) {
         try {
-            if (File.Exists(configPath)) {
-                string txt = File.ReadAllText(configPath);
-                Match m1 = Regex.Match(txt, "\"slowSpeed\"\\s*:\\s*([0-9.]+)");
-                Match m2 = Regex.Match(txt, "\"jogSpeed\"\\s*:\\s*([0-9.]+)");
-                Match m3 = Regex.Match(txt, "\"scrlSpeed\"\\s*:\\s*([0-9.]+)");
-                Match m4 = Regex.Match(txt, "\"invertWheel\"\\s*:\\s*(true|false)");
-                if (m1.Success) slowSpeed = float.Parse(m1.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
-                if (m2.Success) jogSpeed = float.Parse(m2.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
-                if (m3.Success) scrlSpeed = float.Parse(m3.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
-                if (m4.Success) invertWheel = m4.Groups[1].Value == "true";
+            if (File.Exists(path)) {
+                string txt = File.ReadAllText(path);
+                slowSpeed = ReadFloat(txt, "slowSpeed", slowSpeed, 0.1f);
+                jogSpeed = ReadFloat(txt, "jogSpeed", jogSpeed, 0.1f);
+                scrlSpeed = ReadFloat(txt, "scrlSpeed", scrlSpeed, 0.1f);
+                invertWheel = ReadBool(txt, "invertWheel", invertWheel);
+                jogCurveEnabled = ReadBool(txt, "jogCurveEnabled", jogCurveEnabled);
+                jogCurveThreshold = ReadFloat(txt, "jogCurveThreshold", jogCurveThreshold, 0f);
+                jogCurveRate = ReadFloat(txt, "jogCurveRate", jogCurveRate, 0f);
+                jogCurveMaxMultiplier = ReadFloat(txt, "jogCurveMaxMultiplier", jogCurveMaxMultiplier, 1f);
+                shuttleDoubleClickMs = ReadInt(txt, "shuttleDoubleClickMs", shuttleDoubleClickMs, 50);
+                shuttleSensitivity = ReadFloat(txt, "shuttleSensitivity", shuttleSensitivity, 1f);
+                shuttleDeadzone = ReadFloat(txt, "shuttleDeadzone", shuttleDeadzone, 0f);
+                shuttleMidi14Bit = ReadBool(txt, "shuttleMidi14Bit", shuttleMidi14Bit);
             }
         } catch {}
     }
 
+    private void LoadConfig() {
+        LoadConfigFromFile(Path.Combine(baseDir, "config.json"));
+        LoadConfigFromFile(configPath);
+    }
+
     private void SaveConfig() {
         try {
+            System.Globalization.CultureInfo inv = System.Globalization.CultureInfo.InvariantCulture;
             string json = "{\r\n" +
-                "  \"slowSpeed\": " + slowSpeed.ToString(System.Globalization.CultureInfo.InvariantCulture) + ",\r\n" +
-                "  \"jogSpeed\": " + jogSpeed.ToString(System.Globalization.CultureInfo.InvariantCulture) + ",\r\n" +
-                "  \"scrlSpeed\": " + scrlSpeed.ToString(System.Globalization.CultureInfo.InvariantCulture) + ",\r\n" +
-                "  \"invertWheel\": " + (invertWheel ? "true" : "false") + "\r\n}";
+                "  \"slowSpeed\": " + slowSpeed.ToString(inv) + ",\r\n" +
+                "  \"jogSpeed\": " + jogSpeed.ToString(inv) + ",\r\n" +
+                "  \"scrlSpeed\": " + scrlSpeed.ToString(inv) + ",\r\n" +
+                "  \"invertWheel\": " + (invertWheel ? "true" : "false") + ",\r\n" +
+                "  \"jogCurveEnabled\": " + (jogCurveEnabled ? "true" : "false") + ",\r\n" +
+                "  \"jogCurveThreshold\": " + jogCurveThreshold.ToString(inv) + ",\r\n" +
+                "  \"jogCurveRate\": " + jogCurveRate.ToString(inv) + ",\r\n" +
+                "  \"jogCurveMaxMultiplier\": " + jogCurveMaxMultiplier.ToString(inv) + ",\r\n" +
+                "  \"shuttleDoubleClickMs\": " + shuttleDoubleClickMs.ToString(inv) + ",\r\n" +
+                "  \"shuttleSensitivity\": " + shuttleSensitivity.ToString(inv) + ",\r\n" +
+                "  \"shuttleDeadzone\": " + shuttleDeadzone.ToString(inv) + ",\r\n" +
+                "  \"shuttleMidi14Bit\": " + (shuttleMidi14Bit ? "true" : "false") + "\r\n}";
             File.WriteAllText(configPath, json);
         } catch {}
+    }
+
+    private static decimal ClampDecimal(decimal val, decimal min, decimal max) {
+        if (val < min) return min;
+        if (val > max) return max;
+        return val;
     }
 
     private void OnOpenSettings(object sender, EventArgs e) {
@@ -148,35 +208,60 @@ class ReplayTrayApp : ApplicationContext {
         }
         settingsForm = new Form();
         settingsForm.Text = "Replay Editor - Wheel Speed";
-        settingsForm.Size = new Size(400, 260);
+        settingsForm.ClientSize = new Size(410, 408);
         settingsForm.FormBorderStyle = FormBorderStyle.FixedDialog;
         settingsForm.MaximizeBox = false;
         settingsForm.MinimizeBox = false;
         settingsForm.StartPosition = FormStartPosition.CenterScreen;
 
-        Label l1 = new Label() { Text = "SLOW JOG Speed (fine):", Left = 20, Top = 25, Width = 220 };
-        NumericUpDown n1 = new NumericUpDown() { Left = 250, Top = 22, Width = 100, Minimum = 0.1M, Maximum = 1000M, DecimalPlaces = 1, Increment = 0.5M, Value = (decimal)Math.Min(1000f, Math.Max(0.1f, slowSpeed)) };
+        Label l1 = new Label() { Text = "SLOW JOG Speed (fine):", Left = 20, Top = 23, Width = 240 };
+        NumericUpDown n1 = new NumericUpDown() { Left = 270, Top = 20, Width = 115, Minimum = 0.1M, Maximum = 1000M, DecimalPlaces = 1, Increment = 0.5M, Value = ClampDecimal((decimal)slowSpeed, 0.1M, 1000M) };
 
-        Label l2 = new Label() { Text = "JOG Speed (main 1:1):", Left = 20, Top = 65, Width = 220 };
-        NumericUpDown n2 = new NumericUpDown() { Left = 250, Top = 62, Width = 100, Minimum = 0.1M, Maximum = 1000M, DecimalPlaces = 1, Increment = 0.5M, Value = (decimal)Math.Min(1000f, Math.Max(0.1f, jogSpeed)) };
+        Label l2 = new Label() { Text = "JOG Speed (main 1:1):", Left = 20, Top = 57, Width = 240 };
+        NumericUpDown n2 = new NumericUpDown() { Left = 270, Top = 54, Width = 115, Minimum = 0.1M, Maximum = 1000M, DecimalPlaces = 1, Increment = 0.5M, Value = ClampDecimal((decimal)jogSpeed, 0.1M, 1000M) };
 
-        Label l3 = new Label() { Text = "SCRL Speed (fast scroll):", Left = 20, Top = 105, Width = 220 };
-        NumericUpDown n3 = new NumericUpDown() { Left = 250, Top = 102, Width = 100, Minimum = 0.1M, Maximum = 10000M, DecimalPlaces = 1, Increment = 1M, Value = (decimal)Math.Min(10000f, Math.Max(0.1f, scrlSpeed)) };
+        Label l3 = new Label() { Text = "SCRL Speed (fast scroll):", Left = 20, Top = 91, Width = 240 };
+        NumericUpDown n3 = new NumericUpDown() { Left = 270, Top = 88, Width = 115, Minimum = 0.1M, Maximum = 10000M, DecimalPlaces = 1, Increment = 1M, Value = ClampDecimal((decimal)scrlSpeed, 0.1M, 10000M) };
 
-        CheckBox cbInv = new CheckBox() { Text = "Invert Wheel Direction (Invert Jog)", Left = 20, Top = 142, Width = 300, Checked = invertWheel };
+        CheckBox cbCurve = new CheckBox() { Text = "Enable JOG Velocity Curve (Exponential)", Left = 20, Top = 124, Width = 365, Checked = jogCurveEnabled };
 
-        Button btnSave = new Button() { Text = "Save and Apply", Left = 120, Top = 175, Width = 150, Height = 32 };
+        Label l4 = new Label() { Text = "JOG Curve Threshold (ticks/s):", Left = 20, Top = 157, Width = 240 };
+        NumericUpDown nThreshold = new NumericUpDown() { Left = 270, Top = 154, Width = 115, Minimum = 0M, Maximum = 500M, DecimalPlaces = 1, Increment = 5M, Value = ClampDecimal((decimal)jogCurveThreshold, 0M, 500M) };
+
+        Label l5 = new Label() { Text = "JOG Curve Exp Rate:", Left = 20, Top = 191, Width = 240 };
+        NumericUpDown nRate = new NumericUpDown() { Left = 270, Top = 188, Width = 115, Minimum = 0.000M, Maximum = 0.500M, DecimalPlaces = 3, Increment = 0.002M, Value = ClampDecimal((decimal)jogCurveRate, 0.000M, 0.500M) };
+
+        Label l6 = new Label() { Text = "JOG Curve Max Multiplier:", Left = 20, Top = 225, Width = 240 };
+        NumericUpDown nMaxMult = new NumericUpDown() { Left = 270, Top = 222, Width = 115, Minimum = 1M, Maximum = 100M, DecimalPlaces = 1, Increment = 1M, Value = ClampDecimal((decimal)jogCurveMaxMultiplier, 1M, 100M) };
+
+        Label l7 = new Label() { Text = "SHTL Sensitivity (ticks for 100%):", Left = 20, Top = 259, Width = 240 };
+        NumericUpDown nShuttleSens = new NumericUpDown() { Left = 270, Top = 256, Width = 115, Minimum = 1M, Maximum = 1000M, DecimalPlaces = 0, Increment = 5M, Value = ClampDecimal((decimal)shuttleSensitivity, 1M, 1000M) };
+
+        CheckBox cbInv = new CheckBox() { Text = "Invert Wheel Direction (Invert Jog/Shuttle)", Left = 20, Top = 292, Width = 365, Checked = invertWheel };
+        CheckBox cbMidi14 = new CheckBox() { Text = "14-bit Shuttle MIDI (CC2 + CC34, 0..16383)", Left = 20, Top = 320, Width = 365, Checked = shuttleMidi14Bit };
+
+        Button btnSave = new Button() { Text = "Save and Apply", Left = 130, Top = 356, Width = 150, Height = 32 };
         btnSave.Click += (s, ev) => {
             slowSpeed = (float)n1.Value;
             jogSpeed = (float)n2.Value;
             scrlSpeed = (float)n3.Value;
+            jogCurveEnabled = cbCurve.Checked;
+            jogCurveThreshold = (float)nThreshold.Value;
+            jogCurveRate = (float)nRate.Value;
+            jogCurveMaxMultiplier = (float)nMaxMult.Value;
+            shuttleSensitivity = (float)nShuttleSens.Value;
             invertWheel = cbInv.Checked;
             invertWheelItem.Checked = invertWheel;
+            shuttleMidi14Bit = cbMidi14.Checked;
             SaveConfig();
             settingsForm.Close();
         };
 
-        settingsForm.Controls.AddRange(new Control[] { l1, n1, l2, n2, l3, n3, cbInv, btnSave });
+        settingsForm.Controls.AddRange(new Control[] {
+            l1, n1, l2, n2, l3, n3, cbCurve,
+            l4, nThreshold, l5, nRate, l6, nMaxMult,
+            l7, nShuttleSens, cbInv, cbMidi14, btnSave
+        });
         settingsForm.Show();
     }
 
@@ -225,6 +310,16 @@ class ReplayTrayApp : ApplicationContext {
             trayIcon.Icon = GetStatusIcon(color);
             statusItem.Text = "Status: " + text;
         } catch (Exception ex) { LogCrash("UpdateStatus", ex); }
+    }
+
+    private void UpdateLastKey(string text) {
+        try {
+            if (hiddenForm != null && hiddenForm.InvokeRequired) {
+                hiddenForm.BeginInvoke(new Action(delegate { UpdateLastKey(text); }));
+                return;
+            }
+            lastKeyItem.Text = text;
+        } catch {}
     }
 
     private bool EnsureMidiOpen() {
@@ -281,14 +376,42 @@ class ReplayTrayApp : ApplicationContext {
     }
 
     private void SendMidi(uint msg) {
-        if (useDirectMidi && virtualMidiPort != IntPtr.Zero) {
-            byte[] data = new byte[] { (byte)(msg & 0xFF), (byte)((msg >> 8) & 0xFF), (byte)((msg >> 16) & 0xFF) };
-            if (is64bit)
-                virtualMIDISendData_64(virtualMidiPort, data, 3);
-            else
-                virtualMIDISendData_32(virtualMidiPort, data, 3);
-        } else if (midiHandle != IntPtr.Zero) {
-            midiOutShortMsg(midiHandle, msg);
+        lock (midiLock) {
+            if (useDirectMidi && virtualMidiPort != IntPtr.Zero) {
+                byte[] data = new byte[] { (byte)(msg & 0xFF), (byte)((msg >> 8) & 0xFF), (byte)((msg >> 16) & 0xFF) };
+                if (is64bit)
+                    virtualMIDISendData_64(virtualMidiPort, data, 3);
+                else
+                    virtualMIDISendData_32(virtualMidiPort, data, 3);
+            } else if (midiHandle != IntPtr.Zero) {
+                midiOutShortMsg(midiHandle, msg);
+            }
+        }
+    }
+
+    private void SendShuttleMidi(double shuttle) {
+        if (double.IsNaN(shuttle) || double.IsInfinity(shuttle)) shuttle = 0.0;
+        if (shuttle < -1.0) shuttle = -1.0;
+        if (shuttle > 1.0) shuttle = 1.0;
+
+        // Handle0 in SoftLab_ReplayEditor.reg: Id = 2 ("MIDIHandle_JogWheel")
+        if (shuttleMidi14Bit) {
+            int midi14 = shuttle >= 0.0
+                ? 8192 + (int)Math.Round(shuttle * 8191.0)
+                : 8192 + (int)Math.Round(shuttle * 8192.0);
+            if (midi14 < 0) midi14 = 0;
+            if (midi14 > 16383) midi14 = 16383;
+            uint msb = (uint)((midi14 >> 7) & 0x7F);
+            uint lsb = (uint)(midi14 & 0x7F);
+            SendMidi(0xB0u | (2u << 8) | (msb << 16));
+            SendMidi(0xB0u | (34u << 8) | (lsb << 16));
+        } else {
+            int midi7 = shuttle >= 0.0
+                ? 64 + (int)Math.Round(shuttle * 63.0)
+                : 64 + (int)Math.Round(shuttle * 64.0);
+            if (midi7 < 0) midi7 = 0;
+            if (midi7 > 127) midi7 = 127;
+            SendMidi(0xB0u | (2u << 8) | ((uint)midi7 << 16));
         }
     }
 
@@ -314,7 +437,8 @@ class ReplayTrayApp : ApplicationContext {
                     string[] p = line.Split('|');
                     if (p.Length < 2) continue;
                     if (p[0] == "WHEEL") {
-                        int steps = int.Parse(p[1]);
+                        int steps;
+                        if (!int.TryParse(p[1], out steps)) continue;
                         if (invertWheel) steps = -steps;
                         int remaining = Math.Abs(steps);
                         bool dirUp = steps > 0;
@@ -325,16 +449,26 @@ class ReplayTrayApp : ApplicationContext {
                             SendMidi(0xB0u | (88u << 8) | (data2 << 16));
                             remaining -= chunk;
                         }
+                    } else if (p[0] == "SHUTTLE") {
+                        double shuttle;
+                        if (double.TryParse(p[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out shuttle)) {
+                            if (invertWheel) shuttle = -shuttle;
+                            shuttleActive = Math.Abs(shuttle) > 1e-6;
+                            SendShuttleMidi(shuttle);
+                        }
                     } else if (p[0] == "ON") {
-                        int note = int.Parse(p[1]);
+                        int note;
+                        if (!int.TryParse(p[1], out note)) continue;
                         SendMidi(0x90u | ((uint)(note & 0x7F) << 8) | (127u << 16));
-                        if (p.Length >= 3) lastKeyItem.Text = "Last key: MIDIKey_" + p[2].Replace("-", "_") + "_DOWN";
+                        if (p.Length >= 3) UpdateLastKey("Last key: MIDIKey_" + p[2].Replace("-", "_") + "_DOWN");
                     } else if (p[0] == "OFF") {
-                        int note = int.Parse(p[1]);
+                        int note;
+                        if (!int.TryParse(p[1], out note)) continue;
                         SendMidi(0x80u | ((uint)(note & 0x7F) << 8));
                     } else if (p[0] == "CC" && p.Length >= 3) {
-                        int cc = int.Parse(p[1]);
-                        int val = int.Parse(p[2]);
+                        int cc;
+                        int val;
+                        if (!int.TryParse(p[1], out cc) || !int.TryParse(p[2], out val)) continue;
                         SendMidi(0xB0u | ((uint)(cc & 0x7F) << 8) | ((uint)(val & 0x7F) << 16));
                     } else if (p[0] == "STATUS") {
                         if (p[1] == "READY") UpdateStatus("Pripojeno (Dvojklik = Nastaveni)", Color.LimeGreen);
@@ -344,6 +478,10 @@ class ReplayTrayApp : ApplicationContext {
                     }
                 }
             } catch {}
+            if (shuttleActive) {
+                shuttleActive = false;
+                SendShuttleMidi(0.0);
+            }
             if (running) Thread.Sleep(3000);
         }
     }
@@ -377,19 +515,29 @@ class ReplayTrayApp : ApplicationContext {
     }
 
     private void OnRestartBridge(object sender, EventArgs e) {
+        if (shuttleActive) {
+            shuttleActive = false;
+            SendShuttleMidi(0.0);
+        }
         try { if (nodeProc != null && !nodeProc.HasExited) nodeProc.Kill(); } catch {}
     }
 
     private void OnExit(object sender, EventArgs e) {
         running = false;
+        if (shuttleActive) {
+            shuttleActive = false;
+            SendShuttleMidi(0.0);
+        }
         try { if (nodeProc != null && !nodeProc.HasExited) nodeProc.Kill(); } catch {}
-        if (midiHandle != IntPtr.Zero) { midiOutClose(midiHandle); midiHandle = IntPtr.Zero; }
-        if (virtualMidiPort != IntPtr.Zero) {
-            try {
-                if (is64bit) virtualMIDIClosePort_64(virtualMidiPort);
-                else virtualMIDIClosePort_32(virtualMidiPort);
-            } catch {}
-            virtualMidiPort = IntPtr.Zero;
+        lock (midiLock) {
+            if (midiHandle != IntPtr.Zero) { midiOutClose(midiHandle); midiHandle = IntPtr.Zero; }
+            if (virtualMidiPort != IntPtr.Zero) {
+                try {
+                    if (is64bit) virtualMIDIClosePort_64(virtualMidiPort);
+                    else virtualMIDIClosePort_32(virtualMidiPort);
+                } catch {}
+                virtualMidiPort = IntPtr.Zero;
+            }
         }
         trayIcon.Visible = false;
         Application.Exit();

@@ -2,5 +2,13 @@
   "slowSpeed": 3,
   "jogSpeed": 10,
   "scrlSpeed": 350,
-  "invertWheel": false
+  "invertWheel": false,
+  "jogCurveEnabled": true,
+  "jogCurveThreshold": 30,
+  "jogCurveRate": 0.015,
+  "jogCurveMaxMultiplier": 20,
+  "shuttleDoubleClickMs": 350,
+  "shuttleSensitivity": 80,
+  "shuttleDeadzone": 0.03,
+  "shuttleMidi14Bit": false
 }
